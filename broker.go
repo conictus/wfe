@@ -13,8 +13,13 @@ const (
 )
 
 type Call struct {
+	ID        string
 	Function  string
 	Arguments []interface{}
+}
+
+func (c *Call) UUID() string {
+	return c.ID
 }
 
 type callRequest struct {
@@ -23,22 +28,22 @@ type callRequest struct {
 
 type CallRequest interface {
 	Ack()
-	Call() Call
+	Call() (Call, error)
 }
 
 func (r *callRequest) Ack() {
 	r.Delivery.Ack(false)
 }
 
-func (r *callRequest) Call() Call {
+func (r *callRequest) Call() (Call, error) {
 	//un serialize the body and return a valid call
 	decoder := gob.NewDecoder(bytes.NewBuffer(r.Body))
 	var c Call
 	if err := decoder.Decode(&c); err != nil {
-		log.Errorf("Failed to decode call message: %s", err)
+		return c, err
 	}
 
-	return c
+	return c, nil
 }
 
 type Broker interface {
