@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"sync"
 )
 
 var (
 	registered map[string]interface{}
+	m          sync.Mutex
 )
 
 func init() {
@@ -37,5 +39,8 @@ func Register(fn interface{}) {
 	}
 
 	n := runtime.FuncForPC(v.Pointer()).Name()
+	log.Debugf("Registering function '%s'", n)
+	m.Lock()
+	defer m.Unlock()
 	registered[n] = fn
 }
