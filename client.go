@@ -14,7 +14,7 @@ var (
 )
 
 type Client interface {
-	Call(work interface{}, args ...interface{}) (Job, error)
+	Call(work interface{}, args ...interface{}) (Response, error)
 }
 
 type clientImpl struct {
@@ -61,7 +61,7 @@ func (c *clientImpl) validateArgs(fn reflect.Type, args ...interface{}) error {
 	return nil
 }
 
-func (c *clientImpl) Call(work interface{}, args ...interface{}) (Job, error) {
+func (c *clientImpl) Call(work interface{}, args ...interface{}) (Response, error) {
 	fn := reflect.ValueOf(work)
 	if err := validateWorkFunc(fn); err != nil {
 		return nil, err

@@ -13,6 +13,6 @@ func (c *Context) ParentUUID() string {
 	return c.parent
 }
 
-func (c *Context) Call(work interface{}, args ...interface{}) (Job, error) {
+func (c *Context) Call(work interface{}, args ...interface{}) (Response, error) {
 	return nil, nil
 }

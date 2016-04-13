@@ -1,6 +1,6 @@
 package wfe
 
-type Job interface {
+type Response interface {
 	ID() string
 	Get() []interface{}
 }

@@ -22,6 +22,12 @@ func New(broker Broker, workers int) *Engine {
 	}
 }
 
+func (e *Engine) newContext(call *Call) *Context {
+	return &Context{
+		id: call.UUID,
+	}
+}
+
 func (e *Engine) handle(request Request) error {
 	call, err := request.Call()
 	if err != nil {
@@ -32,8 +38,10 @@ func (e *Engine) handle(request Request) error {
 	if !ok {
 		return fmt.Errorf("calling unregisted function '%s'", call.Function)
 	}
+
 	values := make([]reflect.Value, 0)
-	values = append(values, reflect.ValueOf(&Context{}))
+	values = append(values, reflect.ValueOf(e.newContext(&call)))
+
 	for _, arg := range call.Arguments {
 		values = append(values, reflect.ValueOf(arg))
 	}
