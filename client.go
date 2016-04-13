@@ -14,7 +14,7 @@ var (
 )
 
 type Client interface {
-	Call(work interface{}, args ...interface{}) (Response, error)
+	Call(work interface{}, args ...interface{}) (Result, error)
 }
 
 type clientImpl struct {
@@ -22,9 +22,30 @@ type clientImpl struct {
 }
 
 func NewClient(broker Broker) Client {
-	return &clientImpl{
+	c := &clientImpl{
 		broker: broker,
 	}
+
+	c.receiveResponses()
+	return c
+}
+
+func (c *clientImpl) Close() {
+	c.broker.Close()
+}
+
+func (c *clientImpl) receiveResponses() {
+	go func() {
+		results, err := c.broker.Responses("test.results")
+		if err != nil {
+			log.Errorf("Failed to receive responses:", err)
+			return
+		}
+
+		for result := range results {
+			log.Infof("Got response for %s", result)
+		}
+	}()
 }
 
 func (c *clientImpl) expectedAt(fn reflect.Type, i int) reflect.Type {
@@ -61,7 +82,7 @@ func (c *clientImpl) validateArgs(fn reflect.Type, args ...interface{}) error {
 	return nil
 }
 
-func (c *clientImpl) Call(work interface{}, args ...interface{}) (Response, error) {
+func (c *clientImpl) Call(work interface{}, args ...interface{}) (Result, error) {
 	fn := reflect.ValueOf(work)
 	if err := validateWorkFunc(fn); err != nil {
 		return nil, err
@@ -74,12 +95,12 @@ func (c *clientImpl) Call(work interface{}, args ...interface{}) (Response, erro
 	}
 
 	call := Call{
-		UUID:        uuid.New(),
+		UUID:      uuid.New(),
 		Function:  runtime.FuncForPC(fn.Pointer()).Name(),
 		Arguments: args,
 	}
 
-	if err := c.broker.Dispatch(call); err != nil {
+	if err := c.broker.Call(call); err != nil {
 		return nil, err
 	}
 

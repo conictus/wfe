@@ -4,11 +4,20 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/streadway/amqp"
+	"golang.org/x/net/context"
 	"sync"
+)
+
+const (
+	amqpWrokQueue           = "wfe.work"
+	amqpRequestContentType  = "application/wfe+request"
+	amqpResponseContentType = "application/wfe+response"
+	amqpContentEncoding     = "encoding/gob"
 )
 
 type amqpRequest struct {
 	amqp.Delivery
+	broker *amqpBroker
 }
 
 func (r *amqpRequest) Ack() error {
@@ -26,37 +35,67 @@ func (r *amqpRequest) Call() (Call, error) {
 	return c, nil
 }
 
-type amqpBroker struct {
-	c    *amqp.Connection
-	disp *amqp.Channel
-	cons *amqp.Channel
+func (r *amqpRequest) Respond(response Response) error {
+	return r.broker.Respond(r.ReplyTo, response)
+}
 
-	dispInit sync.Once
-	consInit sync.Once
+//
+//type amqpResponse struct {
+//	amqp.Delivery
+//}
+//
+//func (r *amqpResponse) ID() string {
+//	return r.CorrelationId
+//}
+//
+//func (r *amqpResponse) Values() []interface{} {
+//	return nil
+//}
+
+type amqpBroker struct {
+	con     *amqp.Connection
+	ctx     context.Context
+	invalid bool
+
+	channel  *amqp.Channel
+	callInit sync.Once
+
+	responseCh   *amqp.Channel
+	responseInit sync.Once
 }
 
 func NewAMQPBroker(url string) (Broker, error) {
-	con, err := amqp.Dial(url)
-	if err != nil {
+	var broker amqpBroker
+	if err := broker.init(url); err != nil {
 		return nil, err
 	}
+	return &broker, nil
+}
 
-	broker := &amqpBroker{
-		c: con,
+func (b *amqpBroker) init(url string) error {
+	c, err := amqp.Dial(url)
+	if err != nil {
+		return err
 	}
 
-	return broker, nil
+	n := make(chan *amqp.Error)
+	c.NotifyClose(n)
+	go func() {
+		//defer close(n)
+		err := <-n
+		log.Errorf("Connection closed: %s", err)
+		b.invalid = true
+	}()
+
+	b.con = c
+	return nil
 }
 
-func (b *amqpBroker) initDispatch() error {
+func (b *amqpBroker) initChannel() error {
 	var err error
-	b.dispInit.Do(func() {
-		b.disp, err = b.c.Channel()
+	b.callInit.Do(func() {
+		b.channel, err = b.con.Channel()
 		if err != nil {
-			return
-		}
-
-		if _, err = b.disp.QueueDeclare(WorkQueue, true, false, false, false, nil); err != nil {
 			return
 		}
 	})
@@ -64,24 +103,12 @@ func (b *amqpBroker) initDispatch() error {
 	return err
 }
 
-func (b *amqpBroker) initConsume() error {
-	var err error
-	b.dispInit.Do(func() {
-		b.cons, err = b.c.Channel()
-		if err != nil {
-			return
-		}
+func (b *amqpBroker) Call(call Call) error {
+	if err := b.initChannel(); err != nil {
+		return err
+	}
 
-		if _, err = b.cons.QueueDeclare(WorkQueue, true, false, false, false, nil); err != nil {
-			return
-		}
-	})
-
-	return err
-}
-
-func (b *amqpBroker) Dispatch(call Call) error {
-	if err := b.initDispatch(); err != nil {
+	if _, err := b.channel.QueueDeclare(amqpWrokQueue, true, false, false, false, nil); err != nil {
 		return err
 	}
 
@@ -91,37 +118,110 @@ func (b *amqpBroker) Dispatch(call Call) error {
 		return err
 	}
 
-	return b.disp.Publish("", WorkQueue, false, false, amqp.Publishing{
+	return b.channel.Publish("", amqpWrokQueue, false, false, amqp.Publishing{
 		DeliveryMode:    amqp.Persistent,
-		ContentType:     contentType,
-		ContentEncoding: contentEncoding,
+		ContentType:     amqpRequestContentType,
+		ContentEncoding: amqpContentEncoding,
+		ReplyTo:         "test.results",
 		Body:            buffer.Bytes(),
 		CorrelationId:   call.UUID,
 	})
 }
 
-func (b *amqpBroker) Consume() (<-chan Request, error) {
-	if err := b.initConsume(); err != nil {
-		return nil, err
+func (b *amqpBroker) Respond(queue string, response Response) error {
+	if err := b.initChannel(); err != nil {
+		return err
 	}
 
-	msges, err := b.cons.Consume(WorkQueue, "", false, false, false, false, nil)
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	if err := encoder.Encode(response); err != nil {
+		return err
+	}
+
+	return b.channel.Publish("", queue, false, false, amqp.Publishing{
+		DeliveryMode:    amqp.Persistent,
+		ContentType:     amqpResponseContentType,
+		ContentEncoding: amqpContentEncoding,
+		Body:            buffer.Bytes(),
+		CorrelationId:   response.UUID,
+	})
+}
+
+func (b *amqpBroker) Requests() (<-chan Request, error) {
+	ch, err := b.con.Channel()
 	if err != nil {
 		return nil, err
 	}
-	ch := make(chan Request)
+
+	if _, err = ch.QueueDeclare(amqpWrokQueue, true, false, false, false, nil); err != nil {
+		return nil, err
+	}
+
+	msges, err := ch.Consume(amqpWrokQueue, "", false, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	feeder := make(chan Request)
 
 	go func() {
+		defer close(feeder)
 		for msg := range msges {
-			if msg.ContentType != contentType {
-				log.Warning("received a message with wrong content type '%s', ignoring.", msg.ContentType)
-				continue
+			if msg.ContentType != amqpRequestContentType {
+				log.Warningf("received a request with wrong content type '%s', ignoring.", msg.ContentType)
+				break
 			}
-			ch <- &amqpRequest{
-				msg,
+			feeder <- &amqpRequest{
+				Delivery: msg,
+				broker:   b,
 			}
 		}
 	}()
 
-	return ch, nil
+	return feeder, nil
+}
+
+func (b *amqpBroker) Responses(queue string) (<-chan Response, error) {
+	ch, err := b.con.Channel()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err = ch.QueueDeclare(queue, false, true, true, false, nil); err != nil {
+		return nil, err
+	}
+
+	msges, err := ch.Consume(queue, "", true, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	feeder := make(chan Response)
+
+	go func() {
+		defer close(feeder)
+		for msg := range msges {
+			if msg.ContentType != amqpResponseContentType {
+				log.Warningf("received a response with wrong content type '%s', ignoring.", msg.ContentType)
+				break
+			}
+			var response Response
+			buffer := bytes.NewBuffer(msg.Body)
+
+			decoder := gob.NewDecoder(buffer)
+			if err := decoder.Decode(&response); err != nil {
+				log.Errorf("Failed to decoder response message: %s", err)
+				continue
+			}
+			log.Debugf("Got response %s", response)
+			feeder <- response
+		}
+	}()
+
+	return feeder, nil
+}
+
+func (b *amqpBroker) Close() {
+	b.con.Close()
 }

@@ -6,10 +6,15 @@ type Call struct {
 	Arguments []interface{}
 }
 
+type Response struct {
+	UUID   string
+	Values []interface{}
+}
+
 func (c *Call) ID() string {
 	return c.UUID
 }
 
-func (c *Call) Get() []interface{} {
+func (c *Call) Get() Result {
 	return nil
 }

@@ -54,8 +54,10 @@ func (e *Engine) handle(request Request) error {
 		results = append(results, value.Interface())
 	}
 
-	log.Debugf("Return: %s", results)
-	return nil
+	return request.Respond(Response{
+		UUID:   call.UUID,
+		Values: results,
+	})
 }
 
 func (e *Engine) worker(q <-chan Request) {
@@ -81,7 +83,7 @@ func (e *Engine) init() chan<- Request {
 }
 
 func (e *Engine) Run() error {
-	requests, err := e.broker.Consume()
+	requests, err := e.broker.Requests()
 	if err != nil {
 		return err
 	}

@@ -1,17 +1,13 @@
 package wfe
 
-const (
-	WorkQueue       = "wfe.work"
-	contentType     = "application/wfe+call"
-	contentEncoding = "encoding/gob"
-)
-
-type Request interface {
-	Ack() error
-	Call() (Call, error)
-}
-
 type Broker interface {
-	Dispatch(call Call) error
-	Consume() (<-chan Request, error)
+	//client side
+	Call(call Call) error
+	Respond(queue string, response Response) error
+
+	Responses(queue string) (<-chan Response, error)
+	//server side
+	Requests() (<-chan Request, error)
+
+	Close()
 }
