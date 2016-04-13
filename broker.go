@@ -12,30 +12,20 @@ const (
 	contentEncoding = "encoding/gob"
 )
 
-type Call struct {
-	ID        string
-	Function  string
-	Arguments []interface{}
-}
-
-func (c *Call) UUID() string {
-	return c.ID
-}
-
-type callRequest struct {
-	amqp.Delivery
-}
-
-type CallRequest interface {
-	Ack()
+type Request interface {
+	Ack() error
 	Call() (Call, error)
 }
 
-func (r *callRequest) Ack() {
-	r.Delivery.Ack(false)
+type amqpRequest struct {
+	amqp.Delivery
 }
 
-func (r *callRequest) Call() (Call, error) {
+func (r *amqpRequest) Ack() error {
+	return r.Delivery.Ack(false)
+}
+
+func (r *amqpRequest) Call() (Call, error) {
 	//un serialize the body and return a valid call
 	decoder := gob.NewDecoder(bytes.NewBuffer(r.Body))
 	var c Call
@@ -48,7 +38,7 @@ func (r *callRequest) Call() (Call, error) {
 
 type Broker interface {
 	Dispatch(call Call) error
-	Consume() (<-chan CallRequest, error)
+	Consume() (<-chan Request, error)
 }
 
 type rabbitMqBroker struct {
@@ -83,7 +73,6 @@ func (b *rabbitMqBroker) init() error {
 	if _, err := b.ch.QueueDeclare(WorkQueue, true, false, false, false, nil); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -102,12 +91,12 @@ func (b *rabbitMqBroker) Dispatch(call Call) error {
 	})
 }
 
-func (b *rabbitMqBroker) Consume() (<-chan CallRequest, error) {
-	msges, err := b.ch.Consume(WorkQueue, "", true, false, false, false, nil)
+func (b *rabbitMqBroker) Consume() (<-chan Request, error) {
+	msges, err := b.ch.Consume(WorkQueue, "", false, false, false, false, nil)
 	if err != nil {
 		return nil, err
 	}
-	ch := make(chan CallRequest)
+	ch := make(chan Request)
 
 	go func() {
 		for msg := range msges {
@@ -115,8 +104,7 @@ func (b *rabbitMqBroker) Consume() (<-chan CallRequest, error) {
 				log.Warning("received a message with wrong content type '%s', ignoring.", msg.ContentType)
 				continue
 			}
-
-			ch <- &callRequest{
+			ch <- &amqpRequest{
 				msg,
 			}
 		}

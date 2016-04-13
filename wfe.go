@@ -22,7 +22,7 @@ func New(broker Broker, workers int) *Engine {
 	}
 }
 
-func (e *Engine) handle(request CallRequest) error {
+func (e *Engine) handle(request Request) error {
 	call, err := request.Call()
 	if err != nil {
 		return err
@@ -37,23 +37,34 @@ func (e *Engine) handle(request CallRequest) error {
 	for _, arg := range call.Arguments {
 		values = append(values, reflect.ValueOf(arg))
 	}
+
 	callable := reflect.ValueOf(fn)
-	callable.Call(values)
+	returns := callable.Call(values)
+
+	results := make([]interface{}, 0, len(values))
+	for _, value := range returns {
+		results = append(results, value.Interface())
+	}
+
+	log.Debugf("Return: %s", results)
 	return nil
 }
 
-func (e *Engine) worker(q <-chan CallRequest) {
+func (e *Engine) worker(q <-chan Request) {
 	for {
 		request := <-q
 		if err := e.handle(request); err != nil {
 			log.Errorf("Failed to handle request: %s", err)
 		}
-		request.Ack()
+		if err := request.Ack(); err != nil {
+			log.Errorf("Failed to acknowledge message processing %s", err)
+		}
 	}
+	log.Warningf("worker routine exited")
 }
 
-func (e *Engine) init() chan<- CallRequest {
-	ch := make(chan CallRequest)
+func (e *Engine) init() chan<- Request {
+	ch := make(chan Request)
 	for i := 0; i < e.workers; i++ {
 		go e.worker(ch)
 	}

@@ -17,17 +17,17 @@ type Client interface {
 	Call(work interface{}, args ...interface{}) (Job, error)
 }
 
-type clientIml struct {
+type clientImpl struct {
 	broker Broker
 }
 
 func NewClient(broker Broker) Client {
-	return &clientIml{
+	return &clientImpl{
 		broker: broker,
 	}
 }
 
-func (c *clientIml) expectedAt(fn reflect.Type, i int) reflect.Type {
+func (c *clientImpl) expectedAt(fn reflect.Type, i int) reflect.Type {
 	if fn.IsVariadic() && i >= fn.NumIn()-1 {
 		argvType := fn.In(fn.NumIn() - 1)
 		return argvType.Elem()
@@ -35,7 +35,33 @@ func (c *clientIml) expectedAt(fn reflect.Type, i int) reflect.Type {
 	return fn.In(i)
 }
 
-func (c *clientIml) Call(work interface{}, args ...interface{}) (Job, error) {
+func (c *clientImpl) validateArgs(fn reflect.Type, args ...interface{}) error {
+	numIn := len(args)
+	expectedIn := fn.NumIn() - 1 //we ignore the context arg
+	if fn.IsVariadic() {
+		expectedIn--
+	}
+
+	if numIn < expectedIn {
+		return TooFewArgumentsError
+	}
+	if !fn.IsVariadic() && numIn > expectedIn {
+		return TooManyArgumentsError
+	}
+
+	for i, arg := range args {
+		actual := reflect.TypeOf(arg)
+		expected := c.expectedAt(fn, i+1)
+
+		if !actual.AssignableTo(expected) {
+			return fmt.Errorf("argument type mismatch at position %d expected %s", i+1, expected)
+		}
+	}
+
+	return nil
+}
+
+func (c *clientImpl) Call(work interface{}, args ...interface{}) (Job, error) {
 	fn := reflect.ValueOf(work)
 	if err := validateWorkFunc(fn); err != nil {
 		return nil, err
@@ -43,31 +69,12 @@ func (c *clientIml) Call(work interface{}, args ...interface{}) (Job, error) {
 
 	//validate arguments list types
 	t := fn.Type()
-
-	numIn := len(args)
-	expectedIn := t.NumIn() - 1 //we ignore the context arg
-	if t.IsVariadic() {
-		expectedIn--
-	}
-
-	if numIn < expectedIn {
-		return nil, TooFewArgumentsError
-	}
-	if !t.IsVariadic() && numIn > expectedIn {
-		return nil, TooManyArgumentsError
-	}
-
-	for i, arg := range args {
-		actual := reflect.TypeOf(arg)
-		expected := c.expectedAt(t, i+1)
-
-		if !actual.AssignableTo(expected) {
-			return nil, fmt.Errorf("argument type mismatch at position %d expected %s", i+1, expected)
-		}
+	if err := c.validateArgs(t, args...); err != nil {
+		return nil, err
 	}
 
 	call := Call{
-		ID:        uuid.New(),
+		UUID:        uuid.New(),
 		Function:  runtime.FuncForPC(fn.Pointer()).Name(),
 		Arguments: args,
 	}
@@ -75,5 +82,6 @@ func (c *clientIml) Call(work interface{}, args ...interface{}) (Job, error) {
 	if err := c.broker.Dispatch(call); err != nil {
 		return nil, err
 	}
+
 	return &call, nil
 }
