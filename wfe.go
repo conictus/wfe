@@ -49,7 +49,15 @@ func (e *Engine) handle(call *Call) ([]interface{}, error) {
 
 	results := make([]interface{}, 0, len(values))
 	for _, value := range returns {
-		results = append(results, value.Interface())
+		var v interface{}
+		switch x := value.Interface().(type) {
+		case error:
+			v = Error{x.Error()}
+		default:
+			v = x
+		}
+
+		results = append(results, v)
 	}
 
 	return results, nil
