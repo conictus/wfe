@@ -21,6 +21,8 @@ type clientImpl struct {
 	dispatcher Dispatcher
 	consumer   Consumer
 	replyTo    string
+
+	results map[string]chan *Response
 }
 
 func NewClient(broker Broker) (Client, error) {
@@ -45,6 +47,7 @@ func NewClient(broker Broker) (Client, error) {
 		replyTo:    replyTo,
 		dispatcher: dispatcher,
 		consumer:   consumer,
+		results:    make(map[string]chan *Response),
 	}
 
 	c.receiveResponses()
@@ -56,6 +59,15 @@ func (c *clientImpl) Close() {
 	c.dispatcher.Close()
 }
 
+func (c *clientImpl) dispatchResponse(id string, r *Response) {
+	defer delete(c.results, id)
+	if ch, ok := c.results[id]; ok {
+		ch <- r
+	} else {
+		log.Warningf("Received unkonwn response id: %s", id)
+	}
+}
+
 func (c *clientImpl) receiveResponses() {
 	go func() {
 		deliveries, err := c.consumer.Consume()
@@ -65,9 +77,14 @@ func (c *clientImpl) receiveResponses() {
 		}
 
 		for delivery := range deliveries {
-			var results []interface{}
-			delivery.Content(&results)
-			log.Infof("Got response for %s", results)
+			log.Debugf("Received response: %s", delivery.ID())
+			var response Response
+			if err := delivery.Content(&response); err != nil {
+				response.State = StateError
+				response.Error = err.Error()
+			}
+
+			c.dispatchResponse(delivery.ID(), &response)
 		}
 	}()
 }
@@ -134,5 +151,12 @@ func (c *clientImpl) Call(work interface{}, args ...interface{}) (Result, error)
 		return nil, err
 	}
 
-	return &call, nil
+	result := &resultImpl{
+		Call: call,
+		ch:   make(chan *Response, 1),
+	}
+
+	c.results[result.ID()] = result.ch
+
+	return result, nil
 }

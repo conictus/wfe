@@ -63,25 +63,44 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		}
 	}()
 
+	response := Response{
+		State: StateError,
+	}
+
+	defer func() {
+		if delivery.ReplyQueue() != "" {
+			log.Debugf("Sending response to %s/%s", delivery.ReplyQueue(), delivery.ID())
+			if err := e.dispatcher.Dispatch(&Message{
+				ID:      delivery.ID(),
+				Queue:   delivery.ReplyQueue(),
+				Content: response,
+			}); err != nil {
+				log.Errorf("Failed to send response: %s", err)
+			}
+		}
+	}()
+
 	var call Call
 	if err := delivery.Content(&call); err != nil {
+		response.Error = err.Error()
 		return err
 	}
 
 	results, err := e.handle(&call)
 	if err != nil {
+		response.Error = err.Error()
 		return err
 	}
 
-	return e.dispatcher.Dispatch(&Message{
-		ID:      delivery.ID(),
-		Queue:   delivery.ReplyQueue(),
-		Content: results,
-	})
+	response.State = StateSuccess
+	response.Results = results
+
+	return nil
 }
 
 func (e *Engine) worker(queue <-chan Delivery) {
 	for request := range queue {
+		log.Debugf("received request: %s", request.ID())
 		if err := e.handleDelivery(request); err != nil {
 			log.Errorf("Failed to handle message: %s", err)
 		}

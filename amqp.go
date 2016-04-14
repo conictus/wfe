@@ -34,11 +34,6 @@ func (r *amqpDelivery) Content(c interface{}) error {
 	return nil
 }
 
-func (r *amqpDelivery) Respond(response Response) error {
-	//return r.broker.Respond(r.ReplyTo, response)
-	return nil
-}
-
 func (r *amqpDelivery) ReplyQueue() string {
 	return r.ReplyTo
 }
