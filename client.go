@@ -62,6 +62,7 @@ func (c *clientImpl) Close() {
 func (c *clientImpl) dispatchResponse(id string, r *Response) {
 	defer delete(c.results, id)
 	if ch, ok := c.results[id]; ok {
+		defer close(ch)
 		ch <- r
 	} else {
 		log.Warningf("Received unkonwn response id: %s", id)
