@@ -18,32 +18,56 @@ type Client interface {
 }
 
 type clientImpl struct {
-	broker Broker
+	dispatcher Dispatcher
+	consumer   Consumer
+	replyTo    string
 }
 
-func NewClient(broker Broker) Client {
+func NewClient(broker Broker) (Client, error) {
+	dispatcher, err := broker.Dispatcher(WorkQueueRoute)
+
+	if err != nil {
+		return nil, err
+	}
+	replyTo := fmt.Sprintf("client.%s", uuid.New())
+	consumer, err := broker.Consumer(&RouteOptions{
+		Queue:       replyTo,
+		Exclusive:   true,
+		AutoConfirm: true,
+		AutoDelete:  true,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
 	c := &clientImpl{
-		broker: broker,
+		replyTo:    replyTo,
+		dispatcher: dispatcher,
+		consumer:   consumer,
 	}
 
 	c.receiveResponses()
-	return c
+	return c, nil
 }
 
 func (c *clientImpl) Close() {
-	c.broker.Close()
+	c.consumer.Close()
+	c.dispatcher.Close()
 }
 
 func (c *clientImpl) receiveResponses() {
 	go func() {
-		results, err := c.broker.Responses("test.results")
+		deliveries, err := c.consumer.Consume()
 		if err != nil {
 			log.Errorf("Failed to receive responses:", err)
 			return
 		}
 
-		for result := range results {
-			log.Infof("Got response for %s", result)
+		for delivery := range deliveries {
+			var results []interface{}
+			delivery.Content(&results)
+			log.Infof("Got response for %s", results)
 		}
 	}()
 }
@@ -100,7 +124,13 @@ func (c *clientImpl) Call(work interface{}, args ...interface{}) (Result, error)
 		Arguments: args,
 	}
 
-	if err := c.broker.Call(call); err != nil {
+	msg := Message{
+		ID:      call.UUID,
+		ReplyTo: c.replyTo,
+		Content: call,
+	}
+
+	if err := c.dispatcher.Dispatch(&msg); err != nil {
 		return nil, err
 	}
 

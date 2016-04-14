@@ -1,18 +1,21 @@
 package wfe
 
 import (
-	"fmt"
+	"errors"
 	"github.com/op/go-logging"
 	"reflect"
 )
 
 var (
-	log = logging.MustGetLogger("wfe")
+	log             = logging.MustGetLogger("wfe")
+	UnknownFunction = errors.New("unkonwn function")
 )
 
 type Engine struct {
 	broker  Broker
 	workers int
+
+	dispatcher Dispatcher
 }
 
 func New(broker Broker, workers int) *Engine {
@@ -28,19 +31,14 @@ func (e *Engine) newContext(call *Call) *Context {
 	}
 }
 
-func (e *Engine) handle(request Request) error {
-	call, err := request.Call()
-	if err != nil {
-		return err
-	}
-
+func (e *Engine) handle(call *Call) ([]interface{}, error) {
 	fn, ok := registered[call.Function]
 	if !ok {
-		return fmt.Errorf("calling unregisted function '%s'", call.Function)
+		return nil, UnknownFunction
 	}
 
 	values := make([]reflect.Value, 0)
-	values = append(values, reflect.ValueOf(e.newContext(&call)))
+	values = append(values, reflect.ValueOf(e.newContext(call)))
 
 	for _, arg := range call.Arguments {
 		values = append(values, reflect.ValueOf(arg))
@@ -54,27 +52,46 @@ func (e *Engine) handle(request Request) error {
 		results = append(results, value.Interface())
 	}
 
-	return request.Respond(Response{
-		UUID:   call.UUID,
-		Values: results,
+	return results, nil
+}
+
+func (e *Engine) handleDelivery(delivery Delivery) error {
+	defer func() {
+		//we discard the message anyway
+		if err := delivery.Confirm(); err != nil {
+			log.Errorf("Failed to acknowledge message processing %s", err)
+		}
+	}()
+
+	var call Call
+	if err := delivery.Content(&call); err != nil {
+		return err
+	}
+
+	results, err := e.handle(&call)
+	if err != nil {
+		return err
+	}
+
+	return e.dispatcher.Dispatch(&Message{
+		ID:      delivery.ID(),
+		Queue:   delivery.ReplyQueue(),
+		Content: results,
 	})
 }
 
-func (e *Engine) worker(q <-chan Request) {
-	for {
-		request := <-q
-		if err := e.handle(request); err != nil {
-			log.Errorf("Failed to handle request: %s", err)
-		}
-		if err := request.Ack(); err != nil {
-			log.Errorf("Failed to acknowledge message processing %s", err)
+func (e *Engine) worker(queue <-chan Delivery) {
+	for request := range queue {
+		if err := e.handleDelivery(request); err != nil {
+			log.Errorf("Failed to handle message: %s", err)
 		}
 	}
-	log.Warningf("worker routine exited")
+
+	log.Errorf("worker routine exited")
 }
 
-func (e *Engine) init() chan<- Request {
-	ch := make(chan Request)
+func (e *Engine) init() chan<- Delivery {
+	ch := make(chan Delivery)
 	for i := 0; i < e.workers; i++ {
 		go e.worker(ch)
 	}
@@ -83,12 +100,25 @@ func (e *Engine) init() chan<- Request {
 }
 
 func (e *Engine) Run() error {
-	requests, err := e.broker.Requests()
+	dispatcher, err := e.broker.Dispatcher(nil)
+	if err != nil {
+		return err
+	}
+
+	e.dispatcher = dispatcher
+
+	consumer, err := e.broker.Consumer(WorkQueueRoute)
+	if err != nil {
+		return err
+	}
+	requests, err := consumer.Consume()
 	if err != nil {
 		return err
 	}
 
 	feed := e.init()
+	defer close(feed)
+
 	for request := range requests {
 		feed <- request
 	}

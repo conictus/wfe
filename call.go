@@ -11,10 +11,10 @@ type Response struct {
 	Values []interface{}
 }
 
-func (c *Call) ID() string {
-	return c.UUID
-}
-
 func (c *Call) Get() Result {
 	return nil
+}
+
+func (c *Call) ID() string {
+	return c.UUID
 }
