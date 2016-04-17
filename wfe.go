@@ -19,12 +19,22 @@ type Engine struct {
 	dispatcher Dispatcher
 }
 
-func New(broker Broker, store ResultStore, workers int) *Engine {
+func New(o *Options, workers int) (*Engine, error) {
+	broker, err := o.GetBroker()
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := o.GetStore()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Engine{
 		broker:  broker,
 		store:   store,
 		workers: workers,
-	}
+	}, nil
 }
 
 func (e *Engine) newContext(req Request) *Context {
@@ -34,7 +44,7 @@ func (e *Engine) newContext(req Request) *Context {
 }
 
 func (e *Engine) handle(req Request) ([]interface{}, error) {
-	fn, ok := registered[req.Fn()]
+	fn, ok := fns[req.Fn()]
 	if !ok {
 		return nil, UnknownFunction
 	}

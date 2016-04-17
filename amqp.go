@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/streadway/amqp"
+	"net/url"
 )
 
 const (
@@ -54,7 +55,13 @@ type amqpConsumer struct {
 	ch *amqp.Channel
 }
 
-func NewAMQPBroker(url string) (Broker, error) {
+func init() {
+	RegisterBroker("amqp", func(u *url.URL) (Broker, error) {
+		return newAMQPBroker(u.String())
+	})
+}
+
+func newAMQPBroker(url string) (Broker, error) {
 	var broker amqpBroker
 	if err := broker.init(url); err != nil {
 		return nil, err

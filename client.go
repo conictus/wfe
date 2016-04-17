@@ -9,7 +9,17 @@ type clientImpl struct {
 	store      ResultStore
 }
 
-func NewClient(broker Broker, store ResultStore) (Client, error) {
+func NewClient(o *Options) (Client, error) {
+	broker, err := o.GetBroker()
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := o.GetStore()
+	if err != nil {
+		return nil, err
+	}
+
 	dispatcher, err := broker.Dispatcher(WorkQueueRoute)
 
 	if err != nil {

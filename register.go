@@ -8,12 +8,12 @@ import (
 )
 
 var (
-	registered map[string]interface{}
+	fns map[string]interface{}
 	m          sync.Mutex
 )
 
 func init() {
-	registered = make(map[string]interface{})
+	fns = make(map[string]interface{})
 }
 
 func validateWorkFunc(v reflect.Value) error {
@@ -42,5 +42,5 @@ func Register(fn interface{}) {
 	log.Debugf("Registering function '%s'", n)
 	m.Lock()
 	defer m.Unlock()
-	registered[n] = fn
+	fns[n] = fn
 }

@@ -4,6 +4,19 @@ import (
 	"fmt"
 )
 
+func parseInt(s string, d int) (int, error) {
+	var v int
+	if s != "" {
+		if n, err := fmt.Sscanf(s, "%d", &v); err != nil || n != 1 {
+			return 0, fmt.Errorf("invalid int value")
+		}
+	} else {
+		v = d
+	}
+
+	return v, nil
+}
+
 func InterfaceResult(vs []interface{}, err error) (interface{}, error) {
 	if err != nil {
 		return "", err

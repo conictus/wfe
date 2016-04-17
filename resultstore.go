@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"net/url"
 	"time"
 )
 
@@ -24,15 +25,33 @@ type ResultStore interface {
 }
 
 type redisStore struct {
-	pool         *redis.Pool
-	getTimeout   int
-	storeTimeout int
+	pool    *redis.Pool
+	timeout int
+	keep    int
 }
 
-func NewRedisStore(server string, password string, getTimeout int, storeTimeout int) ResultStore {
+func init() {
+	RegisterResultStore("redis", func(u *url.URL) (ResultStore, error) {
+		timeout, err := parseInt(u.Query().Get("timeout"), 30)
+		if err != nil {
+			return nil, err
+		}
+		keep, err := parseInt(u.Query().Get("keep"), 3600)
+		if err != nil {
+			return nil, err
+		}
+		var pass string
+		if u.User != nil {
+			pass = u.User.Username()
+		}
+		store := newRedisStore(u.Host, pass, timeout, keep)
+		return store, nil
+	})
+}
+func newRedisStore(server string, password string, timeout int, keep int) ResultStore {
 	return &redisStore{
-		getTimeout:   getTimeout,
-		storeTimeout: storeTimeout,
+		timeout: timeout,
+		keep:    keep,
 		pool: &redis.Pool{
 			MaxIdle:     3,
 			IdleTimeout: 240 * time.Second,
@@ -71,7 +90,7 @@ func (s *redisStore) Set(response *Response) error {
 	queue := fmt.Sprintf(ResultQueueTmpl, response.UUID)
 	conn.Send("MULTI")
 	conn.Send("LPUSH", queue, buffer.String())
-	conn.Send("EXPIRE", queue, s.storeTimeout)
+	conn.Send("EXPIRE", queue, s.keep)
 	_, err := conn.Do("EXEC")
 	return err
 }
@@ -80,7 +99,7 @@ func (s *redisStore) Get(uuid string, timeout int) (*Response, error) {
 	conn := s.pool.Get()
 	defer conn.Close()
 	if timeout == DefaultTimeout {
-		timeout = s.getTimeout
+		timeout = s.timeout
 	}
 
 	queue := fmt.Sprintf(ResultQueueTmpl, uuid)
