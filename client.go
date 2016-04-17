@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/pborman/uuid"
-	"reflect"
-	"runtime"
 )
 
 var (
@@ -14,7 +12,7 @@ var (
 )
 
 type Client interface {
-	Call(work interface{}, args ...interface{}) (Result, error)
+	Apply(req Request) (Result, error)
 }
 
 type clientImpl struct {
@@ -90,62 +88,11 @@ func (c *clientImpl) receiveResponses() {
 	}()
 }
 
-func (c *clientImpl) expectedAt(fn reflect.Type, i int) reflect.Type {
-	if fn.IsVariadic() && i >= fn.NumIn()-1 {
-		argvType := fn.In(fn.NumIn() - 1)
-		return argvType.Elem()
-	}
-	return fn.In(i)
-}
-
-func (c *clientImpl) validateArgs(fn reflect.Type, args ...interface{}) error {
-	numIn := len(args)
-	expectedIn := fn.NumIn() - 1 //we ignore the context arg
-	if fn.IsVariadic() {
-		expectedIn--
-	}
-
-	if numIn < expectedIn {
-		return TooFewArgumentsError
-	}
-	if !fn.IsVariadic() && numIn > expectedIn {
-		return TooManyArgumentsError
-	}
-
-	for i, arg := range args {
-		actual := reflect.TypeOf(arg)
-		expected := c.expectedAt(fn, i+1)
-
-		if !actual.AssignableTo(expected) {
-			return fmt.Errorf("argument type mismatch at position %d expected %s", i+1, expected)
-		}
-	}
-
-	return nil
-}
-
-func (c *clientImpl) Call(work interface{}, args ...interface{}) (Result, error) {
-	fn := reflect.ValueOf(work)
-	if err := validateWorkFunc(fn); err != nil {
-		return nil, err
-	}
-
-	//validate arguments list types
-	t := fn.Type()
-	if err := c.validateArgs(t, args...); err != nil {
-		return nil, err
-	}
-
-	call := Call{
-		UUID:      uuid.New(),
-		Function:  runtime.FuncForPC(fn.Pointer()).Name(),
-		Arguments: args,
-	}
-
+func (c *clientImpl) Apply(req Request) (Result, error) {
 	msg := Message{
-		ID:      call.UUID,
+		ID:      req.ID(),
 		ReplyTo: c.replyTo,
-		Content: call,
+		Content: req,
 	}
 
 	if err := c.dispatcher.Dispatch(&msg); err != nil {
@@ -153,8 +100,8 @@ func (c *clientImpl) Call(work interface{}, args ...interface{}) (Result, error)
 	}
 
 	result := &resultImpl{
-		Call: call,
-		ch:   make(chan *Response, 1),
+		Request: req,
+		ch:      make(chan *Response, 1),
 	}
 
 	c.results[result.ID()] = result.ch

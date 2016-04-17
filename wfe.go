@@ -25,22 +25,22 @@ func New(broker Broker, workers int) *Engine {
 	}
 }
 
-func (e *Engine) newContext(call *Call) *Context {
+func (e *Engine) newContext(req Request) *Context {
 	return &Context{
-		id: call.UUID,
+		id: req.ID(),
 	}
 }
 
-func (e *Engine) handle(call *Call) ([]interface{}, error) {
-	fn, ok := registered[call.Function]
+func (e *Engine) handle(req Request) ([]interface{}, error) {
+	fn, ok := registered[req.Fn()]
 	if !ok {
 		return nil, UnknownFunction
 	}
 
 	values := make([]reflect.Value, 0)
-	values = append(values, reflect.ValueOf(e.newContext(call)))
+	values = append(values, reflect.ValueOf(e.newContext(req)))
 
-	for _, arg := range call.Arguments {
+	for _, arg := range req.Args() {
 		values = append(values, reflect.ValueOf(arg))
 	}
 
@@ -88,13 +88,13 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		}
 	}()
 
-	var call Call
-	if err := delivery.Content(&call); err != nil {
+	var req requestImpl
+	if err := delivery.Content(&req); err != nil {
 		response.Error = err.Error()
 		return err
 	}
 
-	results, err := e.handle(&call)
+	results, err := e.handle(&req)
 	if err != nil {
 		response.Error = err.Error()
 		return err

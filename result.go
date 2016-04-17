@@ -11,15 +11,11 @@ type Result interface {
 }
 
 type resultImpl struct {
-	Call
+	Request
 	ch     chan *Response
 	o      sync.Once
 	values []interface{}
 	err    error
-}
-
-func (r *resultImpl) ID() string {
-	return r.UUID
 }
 
 func (r *resultImpl) Get() ([]interface{}, error) {
