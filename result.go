@@ -12,7 +12,7 @@ type Result interface {
 
 type resultImpl struct {
 	Request
-	ch     chan *Response
+	store  ResultStore
 	o      sync.Once
 	values []interface{}
 	err    error
@@ -29,8 +29,11 @@ func (r *resultImpl) Get() ([]interface{}, error) {
 }
 
 func (r *resultImpl) get() ([]interface{}, error) {
-	//todo: a timeout would be nice
-	response := <-r.ch
+	response, err := r.store.Get(r.ID(), DefaultTimeout)
+	if err != nil {
+		return nil, err
+	}
+
 	if response.State == StateError {
 		return nil, errors.New(response.Error)
 	}

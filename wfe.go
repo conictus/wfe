@@ -13,14 +13,16 @@ var (
 
 type Engine struct {
 	broker  Broker
+	store   ResultStore
 	workers int
 
 	dispatcher Dispatcher
 }
 
-func New(broker Broker, workers int) *Engine {
+func New(broker Broker, store ResultStore, workers int) *Engine {
 	return &Engine{
 		broker:  broker,
+		store:   store,
 		workers: workers,
 	}
 }
@@ -72,19 +74,13 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 	}()
 
 	response := Response{
+		UUID:  delivery.ID(),
 		State: StateError,
 	}
 
 	defer func() {
-		if delivery.ReplyQueue() != "" {
-			log.Debugf("Sending response to %s/%s", delivery.ReplyQueue(), delivery.ID())
-			if err := e.dispatcher.Dispatch(&Message{
-				ID:      delivery.ID(),
-				Queue:   delivery.ReplyQueue(),
-				Content: response,
-			}); err != nil {
-				log.Errorf("Failed to send response: %s", err)
-			}
+		if err := e.store.Set(&response); err != nil {
+			log.Errorf("Failed to send response for id: %s", response.UUID)
 		}
 	}()
 
@@ -127,13 +123,6 @@ func (e *Engine) init() chan<- Delivery {
 }
 
 func (e *Engine) Run() error {
-	dispatcher, err := e.broker.Dispatcher(nil)
-	if err != nil {
-		return err
-	}
-
-	e.dispatcher = dispatcher
-
 	consumer, err := e.broker.Consumer(WorkQueueRoute)
 	if err != nil {
 		return err

@@ -1,6 +1,7 @@
 package wfe
 
 import (
+	"errors"
 	"fmt"
 	"github.com/pborman/uuid"
 	"reflect"
@@ -10,6 +11,11 @@ import (
 const (
 	StateSuccess = "success"
 	StateError   = "error"
+)
+
+var (
+	ErrTooFewArguments  = errors.New("call with too few arguments")
+	ErrTooManyArguments = errors.New("call with too many arguments")
 )
 
 type Request interface {
@@ -25,6 +31,7 @@ type requestImpl struct {
 }
 
 type Response struct {
+	UUID    string
 	State   string
 	Error   string
 	Results []interface{}
@@ -58,10 +65,10 @@ func validateArgs(fn reflect.Type, args ...interface{}) error {
 	}
 
 	if numIn < expectedIn {
-		return TooFewArgumentsError
+		return ErrTooFewArguments
 	}
 	if !fn.IsVariadic() && numIn > expectedIn {
-		return TooManyArgumentsError
+		return ErrTooManyArguments
 	}
 
 	for i, arg := range args {
