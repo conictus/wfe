@@ -51,3 +51,17 @@ func StringResult(vs []interface{}, err error) (string, error) {
 		return "", fmt.Errorf("not string")
 	}
 }
+
+func IntResult(vs []interface{}, err error) (int, error) {
+	o, e := InterfaceResult(vs, err)
+
+	if e != nil {
+		return 0, e
+	}
+
+	if x, ok := o.(int); ok {
+		return x, e
+	} else {
+		return 0, fmt.Errorf("not int")
+	}
+}

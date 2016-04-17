@@ -1,18 +1,21 @@
 package wfe
 
 type Context struct {
-	id     string
-	parent string
+	Client
+	id string
 }
 
 func (c *Context) UUID() string {
 	return c.id
 }
 
-func (c *Context) ParentUUID() string {
-	return c.parent
-}
+func (c *Context) Apply(req Request) (Result, error) {
+	call := &requestImpl{
+		UUID:       req.ID(),
+		ParentUUID: c.id,
+		Function:   req.Fn(),
+		Arguments:  req.Args(),
+	}
 
-func (c *Context) Call(work interface{}, args ...interface{}) (Result, error) {
-	return nil, nil
+	return c.Client.Apply(call)
 }

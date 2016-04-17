@@ -16,7 +16,7 @@ type Engine struct {
 	store   ResultStore
 	workers int
 
-	dispatcher Dispatcher
+	client Client
 }
 
 func New(o *Options, workers int) (*Engine, error) {
@@ -30,16 +30,23 @@ func New(o *Options, workers int) (*Engine, error) {
 		return nil, err
 	}
 
+	client, err := NewClient(o)
+
+	if err != nil {
+		return nil, err
+	}
 	return &Engine{
 		broker:  broker,
 		store:   store,
 		workers: workers,
+		client:  client,
 	}, nil
 }
 
 func (e *Engine) newContext(req Request) *Context {
 	return &Context{
-		id: req.ID(),
+		Client: e.client,
+		id:     req.ID(),
 	}
 }
 

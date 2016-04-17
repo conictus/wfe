@@ -20,14 +20,16 @@ var (
 
 type Request interface {
 	ID() string
+	ParentID() string
 	Fn() string
 	Args() []interface{}
 }
 
 type requestImpl struct {
-	UUID      string
-	Function  string
-	Arguments []interface{}
+	ParentUUID string
+	UUID       string
+	Function   string
+	Arguments  []interface{}
 }
 
 type Response struct {
@@ -39,6 +41,10 @@ type Response struct {
 
 func (r *requestImpl) ID() string {
 	return r.UUID
+}
+
+func (r *requestImpl) ParentID() string {
+	return r.ParentUUID
 }
 
 func (r *requestImpl) Fn() string {
