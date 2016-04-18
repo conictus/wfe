@@ -17,7 +17,7 @@ func parseInt(s string, d int) (int, error) {
 	return v, nil
 }
 
-func InterfaceResult(vs []interface{}, err error) (interface{}, error) {
+func InterfaceResult(vs ResultTuple, err error) (interface{}, error) {
 	if err != nil {
 		return "", err
 	}
@@ -38,7 +38,7 @@ func InterfaceResult(vs []interface{}, err error) (interface{}, error) {
 	return o, nil
 }
 
-func StringResult(vs []interface{}, err error) (string, error) {
+func StringResult(vs ResultTuple, err error) (string, error) {
 	o, e := InterfaceResult(vs, err)
 
 	if e != nil {
@@ -52,7 +52,7 @@ func StringResult(vs []interface{}, err error) (string, error) {
 	}
 }
 
-func IntResult(vs []interface{}, err error) (int, error) {
+func IntResult(vs ResultTuple, err error) (int, error) {
 	o, e := InterfaceResult(vs, err)
 
 	if e != nil {

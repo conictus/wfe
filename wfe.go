@@ -2,6 +2,7 @@ package wfe
 
 import (
 	"errors"
+	"fmt"
 	"github.com/op/go-logging"
 	"reflect"
 	"time"
@@ -40,23 +41,38 @@ func (e *Engine) newContext(req Request) *Context {
 	}
 }
 
-func (e *Engine) handle(req Request) ([]interface{}, error) {
+func (e *Engine) handle(req Request) (ResultTuple, error) {
+	log.Debugf("Calling %s", req)
 	fn, ok := fns[req.Fn()]
 	if !ok {
 		return nil, UnknownFunction
 	}
 
+	callable := reflect.ValueOf(fn)
+	callableType := callable.Type()
+
 	values := make([]reflect.Value, 0)
 	values = append(values, reflect.ValueOf(e.newContext(req)))
 
-	for _, arg := range req.Args() {
-		values = append(values, reflect.ValueOf(arg))
+	for i, arg := range req.Args() {
+		argType := expectedAt(callableType, i+1)
+		inValue := reflect.ValueOf(arg)
+
+		switch argType.Kind() {
+		case reflect.Ptr:
+			fallthrough
+		case reflect.Interface:
+			new := reflect.New(inValue.Type())
+			new.Elem().Set(inValue)
+			inValue = new
+		}
+
+		values = append(values, inValue)
 	}
 
-	callable := reflect.ValueOf(fn)
 	returns := callable.Call(values)
 
-	results := make([]interface{}, 0, len(values))
+	results := make(ResultTuple, 0, len(values))
 	for _, value := range returns {
 		var v interface{}
 		switch x := value.Interface().(type) {
@@ -86,8 +102,23 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 	}
 
 	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("Message '%s' paniced: %s", delivery.ID(), err)
+			response.State = StateError
+			switch x := err.(type) {
+			case error:
+				response.Error = x.Error()
+			case fmt.Stringer:
+				response.Error = x.String()
+			case string:
+				response.Error = x
+			default:
+				response.Error = "unknown error"
+			}
+		}
+
 		if err := e.store.Set(&response); err != nil {
-			log.Errorf("Failed to send response for id: %s", response.UUID)
+			log.Errorf("Failed to send response for id (%s): %s", response.UUID, err)
 		}
 	}()
 

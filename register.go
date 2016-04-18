@@ -8,13 +8,9 @@ import (
 )
 
 var (
-	fns map[string]interface{}
-	m          sync.Mutex
-)
-
-func init() {
 	fns = make(map[string]interface{})
-}
+	m   sync.Mutex
+)
 
 func validateWorkFunc(v reflect.Value) error {
 	if v.Kind() != reflect.Func {

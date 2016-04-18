@@ -1,6 +1,7 @@
 package wfe
 
 import (
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/pborman/uuid"
@@ -17,6 +18,10 @@ var (
 	ErrTooFewArguments  = errors.New("call with too few arguments")
 	ErrTooManyArguments = errors.New("call with too many arguments")
 )
+
+func init() {
+	gob.Register(requestImpl{})
+}
 
 type Request interface {
 	ID() string
@@ -53,6 +58,10 @@ func (r *requestImpl) Fn() string {
 
 func (r *requestImpl) Args() []interface{} {
 	return r.Arguments
+}
+
+func (r *requestImpl) String() string {
+	return fmt.Sprintf("%s(%v)", r.Function, r.Arguments)
 }
 
 func expectedAt(fn reflect.Type, i int) reflect.Type {
@@ -108,4 +117,12 @@ func Call(work interface{}, args ...interface{}) (Request, error) {
 	}
 
 	return call, nil
+}
+
+func MustCall(work interface{}, args ...interface{}) Request {
+	req, err := Call(work, args...)
+	if err != nil {
+		panic(err)
+	}
+	return req
 }

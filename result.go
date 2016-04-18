@@ -1,24 +1,31 @@
 package wfe
 
 import (
+	"encoding/gob"
 	"errors"
 	"sync"
 )
 
+func init() {
+	gob.Register(ResultTuple{})
+}
+
+type ResultTuple []interface{}
+
 type Result interface {
 	ID() string
-	Get() ([]interface{}, error)
+	Get() (ResultTuple, error)
 }
 
 type resultImpl struct {
 	Request
 	store  ResultStore
 	o      sync.Once
-	values []interface{}
+	values ResultTuple
 	err    error
 }
 
-func (r *resultImpl) Get() ([]interface{}, error) {
+func (r *resultImpl) Get() (ResultTuple, error) {
 	r.o.Do(func() {
 		results, err := r.get()
 		r.values = results
@@ -28,7 +35,7 @@ func (r *resultImpl) Get() ([]interface{}, error) {
 	return r.values, r.err
 }
 
-func (r *resultImpl) get() ([]interface{}, error) {
+func (r *resultImpl) get() (ResultTuple, error) {
 	response, err := r.store.Get(r.ID(), DefaultTimeout)
 	if err != nil {
 		return nil, err
@@ -38,5 +45,5 @@ func (r *resultImpl) get() ([]interface{}, error) {
 		return nil, errors.New(response.Error)
 	}
 
-	return response.Results, nil
+	return ResultTuple(response.Results), nil
 }
