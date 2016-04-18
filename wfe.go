@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/op/go-logging"
 	"reflect"
+	"time"
 )
 
 var (
@@ -12,7 +13,7 @@ var (
 )
 
 type Engine struct {
-	broker  Broker
+	opt     *Options
 	store   ResultStore
 	workers int
 
@@ -20,26 +21,15 @@ type Engine struct {
 }
 
 func New(o *Options, workers int) (*Engine, error) {
-	broker, err := o.GetBroker()
-	if err != nil {
-		return nil, err
-	}
-
 	store, err := o.GetStore()
 	if err != nil {
-		return nil, err
+		log.Warningf("Failed to create a result store: %s", err)
 	}
 
-	client, err := NewClient(o)
-
-	if err != nil {
-		return nil, err
-	}
 	return &Engine{
-		broker:  broker,
+		opt:     o,
 		store:   store,
 		workers: workers,
-		client:  client,
 	}, nil
 }
 
@@ -126,11 +116,9 @@ func (e *Engine) worker(queue <-chan Delivery) {
 			log.Errorf("Failed to handle message: %s", err)
 		}
 	}
-
-	log.Errorf("worker routine exited")
 }
 
-func (e *Engine) init() chan<- Delivery {
+func (e *Engine) startWorkers() chan<- Delivery {
 	ch := make(chan Delivery)
 	for i := 0; i < e.workers; i++ {
 		go e.worker(ch)
@@ -139,22 +127,64 @@ func (e *Engine) init() chan<- Delivery {
 	return ch
 }
 
-func (e *Engine) Run() error {
-	consumer, err := e.broker.Consumer(WorkQueueRoute)
+func (e *Engine) getRequestsQueue() (Broker, <-chan Delivery, error) {
+	broker, err := e.opt.GetBroker()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+
+	consumer, err := broker.Consumer(WorkQueueRoute)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	requests, err := consumer.Consume()
 	if err != nil {
-		return err
+		broker.Close()
+		return nil, nil, err
 	}
 
-	feed := e.init()
-	defer close(feed)
+	return broker, requests, nil
+}
 
-	for request := range requests {
-		feed <- request
+func (e *Engine) getClient(broker Broker) (Client, error) {
+	dispatcher, err := broker.Dispatcher(WorkQueueRoute)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &clientImpl{
+		dispatcher: dispatcher,
+		store:      e.store,
+	}, nil
+}
+
+func (e *Engine) Run() {
+	for {
+		broker, requests, err := e.getRequestsQueue()
+		if err != nil {
+			log.Errorf("Failed to connect to broker '%s': %s", e.opt.Broker, err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		client, err := e.getClient(broker)
+		if err != nil {
+			log.Errorf("Failed to intialize client: %s", err)
+		}
+
+		e.client = client
+
+		feed := e.startWorkers()
+		for request := range requests {
+			feed <- request
+		}
+		log.Warningf("Lost connection with broker")
+
+		broker.Close()
+		client.Close()
+
+		close(feed)
+	}
 }

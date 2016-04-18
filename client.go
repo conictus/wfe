@@ -2,6 +2,7 @@ package wfe
 
 type Client interface {
 	Apply(req Request) (Result, error)
+	Close() error
 }
 
 type clientImpl struct {
@@ -32,8 +33,8 @@ func NewClient(o *Options) (Client, error) {
 	}, nil
 }
 
-func (c *clientImpl) Close() {
-	c.dispatcher.Close()
+func (c *clientImpl) Close() error {
+	return c.dispatcher.Close()
 }
 
 func (c *clientImpl) Apply(req Request) (Result, error) {
