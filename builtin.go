@@ -2,34 +2,26 @@ package wfe
 
 import (
 	"encoding/gob"
-	"sync"
 )
 
 func init() {
+	gob.Register([]interface{}{})
 	Register(group)
-	gob.Register([]ResultTuple{})
 }
 
-func group(c *Context, requests ...Request) ([]ResultTuple, error) {
-	results := make([]ResultTuple, len(requests))
-	var wg sync.WaitGroup
-	wg.Add(len(results))
+
+func group(c *Context, requests ...Request) []string {
+	results := make([]string, len(requests))
 	for i, request := range requests {
 		result, err := c.Apply(request)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
-		go func(x int, res Result) {
-			defer wg.Done()
-
-			r, e := res.Get()
-			results[x] = ResultTuple{r, e}
-		}(i, result)
+		results[i] = result.ID()
 	}
 
-	wg.Wait()
-	return results, nil
+	return results
 }
 
 func Group(requests ...Request) Request {

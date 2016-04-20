@@ -17,50 +17,37 @@ func parseInt(s string, d int) (int, error) {
 	return v, nil
 }
 
-func InterfaceResult(vs ResultTuple, err error) (interface{}, error) {
+func StringResult(r interface{}, err error) (string, error) {
 	if err != nil {
 		return "", err
 	}
 
-	if len(vs) != 2 {
-		return "", fmt.Errorf("expecting 2 argument, got %d", len(vs))
-	}
-
-	o, e := vs[0], vs[1]
-	if e != nil {
-		if x, ok := e.(error); ok {
-			return o, x
-		} else {
-			return o, fmt.Errorf("not error")
-		}
-	}
-
-	return o, nil
-}
-
-func StringResult(vs ResultTuple, err error) (string, error) {
-	o, e := InterfaceResult(vs, err)
-
-	if e != nil {
-		return "", e
-	}
-
-	if x, ok := o.(string); ok {
-		return x, e
+	if x, ok := r.(string); ok {
+		return x, err
 	} else {
 		return "", fmt.Errorf("not string")
 	}
 }
 
-func IntResult(vs ResultTuple, err error) (int, error) {
-	o, e := InterfaceResult(vs, err)
-
-	if e != nil {
-		return 0, e
+func StringListResult(r interface{}, err error) ([]string, error) {
+	if err != nil {
+		return nil, err
 	}
 
-	if x, ok := o.(int); ok {
-		return x, e
+	if x, ok := r.([]string); ok {
+		return x, err
+	} else {
+		return nil, fmt.Errorf("not string list")
+	}
+}
+
+func IntResult(r interface{}, err error) (int, error) {
+	if err != nil {
+		return 0, err
+	}
+
+	if x, ok := r.(int); ok {
+		return x, err
 	} else {
 		return 0, fmt.Errorf("not int")
 	}

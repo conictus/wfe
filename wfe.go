@@ -41,7 +41,7 @@ func (e *Engine) newContext(req Request) *Context {
 	}
 }
 
-func (e *Engine) handle(req Request) (ResultTuple, error) {
+func (e *Engine) handle(req Request) (interface{}, error) {
 	log.Debugf("Calling %s", req)
 	fn, ok := fns[req.Fn()]
 	if !ok {
@@ -72,20 +72,12 @@ func (e *Engine) handle(req Request) (ResultTuple, error) {
 
 	returns := callable.Call(values)
 
-	results := make(ResultTuple, 0, len(values))
-	for _, value := range returns {
-		var v interface{}
-		switch x := value.Interface().(type) {
-		case error:
-			v = Error{x.Error()}
-		default:
-			v = x
-		}
-
-		results = append(results, v)
+	var result interface{}
+	if len(returns) == 1 {
+		result = returns[0].Interface()
 	}
 
-	return results, nil
+	return result, nil
 }
 
 func (e *Engine) handleDelivery(delivery Delivery) error {
@@ -105,16 +97,7 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		if err := recover(); err != nil {
 			log.Errorf("Message '%s' paniced: %s", delivery.ID(), err)
 			response.State = StateError
-			switch x := err.(type) {
-			case error:
-				response.Error = x.Error()
-			case fmt.Stringer:
-				response.Error = x.String()
-			case string:
-				response.Error = x
-			default:
-				response.Error = "unknown error"
-			}
+			response.Error = fmt.Sprintf("%v", err)
 		}
 
 		if err := e.store.Set(&response); err != nil {
@@ -128,14 +111,14 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		return err
 	}
 
-	results, err := e.handle(&req)
+	result, err := e.handle(&req)
 	if err != nil {
 		response.Error = err.Error()
 		return err
 	}
 
 	response.State = StateSuccess
-	response.Results = results
+	response.Result = result
 
 	return nil
 }

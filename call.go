@@ -38,10 +38,10 @@ type requestImpl struct {
 }
 
 type Response struct {
-	UUID    string
-	State   string
-	Error   string
-	Results []interface{}
+	UUID   string
+	State  string
+	Error  string
+	Result interface{}
 }
 
 func (r *requestImpl) ID() string {

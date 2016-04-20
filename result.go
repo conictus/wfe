@@ -7,35 +7,37 @@ import (
 )
 
 func init() {
-	gob.Register(ResultTuple{})
+	gob.Register(interface{}(0))
 }
-
-type ResultTuple []interface{}
 
 type Result interface {
 	ID() string
-	Get() (ResultTuple, error)
+	Get() (interface{}, error)
 }
 
 type resultImpl struct {
-	Request
-	store  ResultStore
-	o      sync.Once
-	values ResultTuple
-	err    error
+	id    string
+	store ResultStore
+	o     sync.Once
+	value interface{}
+	err   error
 }
 
-func (r *resultImpl) Get() (ResultTuple, error) {
+func (r *resultImpl) ID() string {
+	return r.id
+}
+
+func (r *resultImpl) Get() (interface{}, error) {
 	r.o.Do(func() {
 		results, err := r.get()
-		r.values = results
+		r.value = results
 		r.err = err
 	})
 
-	return r.values, r.err
+	return r.value, r.err
 }
 
-func (r *resultImpl) get() (ResultTuple, error) {
+func (r *resultImpl) get() (interface{}, error) {
 	response, err := r.store.Get(r.ID(), DefaultTimeout)
 	if err != nil {
 		return nil, err
@@ -45,5 +47,5 @@ func (r *resultImpl) get() (ResultTuple, error) {
 		return nil, errors.New(response.Error)
 	}
 
-	return ResultTuple(response.Results), nil
+	return response.Result, nil
 }

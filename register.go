@@ -25,6 +25,10 @@ func validateWorkFunc(v reflect.Value) error {
 		return fmt.Errorf("worker function first argument not of type *wfe.Context")
 	}
 
+	if t.NumOut() > 1 {
+		return fmt.Errorf("worker function must return maximum of one object")
+	}
+
 	return nil
 }
 

@@ -2,6 +2,7 @@ package wfe
 
 type Client interface {
 	Apply(req Request) (Result, error)
+	ResultFor(id string) Result
 	Close() error
 }
 
@@ -37,6 +38,13 @@ func (c *clientImpl) Close() error {
 	return c.dispatcher.Close()
 }
 
+func (c *clientImpl) ResultFor(id string) Result {
+	return &resultImpl{
+		id:    id,
+		store: c.store,
+	}
+}
+
 func (c *clientImpl) Apply(req Request) (Result, error) {
 	msg := Message{
 		ID:      req.ID(),
@@ -48,8 +56,8 @@ func (c *clientImpl) Apply(req Request) (Result, error) {
 	}
 
 	result := &resultImpl{
-		Request: req,
-		store:   c.store,
+		id:    req.ID(),
+		store: c.store,
 	}
 
 	return result, nil
