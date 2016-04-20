@@ -2,6 +2,7 @@ package wfe
 
 type Client interface {
 	Apply(req Request) (Result, error)
+	Group(requests ...Request) (GroupResult, error)
 	ResultFor(id string) Result
 	Close() error
 }
