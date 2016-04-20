@@ -8,13 +8,9 @@ import (
 )
 
 var (
-	fns map[string]interface{}
-	m          sync.Mutex
-)
-
-func init() {
 	fns = make(map[string]interface{})
-}
+	m   sync.Mutex
+)
 
 func validateWorkFunc(v reflect.Value) error {
 	if v.Kind() != reflect.Func {
@@ -27,6 +23,10 @@ func validateWorkFunc(v reflect.Value) error {
 
 	if t.In(0) != reflect.TypeOf((*Context)(nil)) {
 		return fmt.Errorf("worker function first argument not of type *wfe.Context")
+	}
+
+	if t.NumOut() > 1 {
+		return fmt.Errorf("worker function must return maximum of one object")
 	}
 
 	return nil

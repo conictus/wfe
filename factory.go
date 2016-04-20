@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	brokers = map[string]BrokerFactory{}
-	stores  = map[string]ResultStoreFactory{}
+	brokers = make(map[string]BrokerFactory)
+	stores  = make(map[string]ResultStoreFactory)
 
 	bm sync.Mutex
 	sm sync.Mutex

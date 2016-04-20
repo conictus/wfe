@@ -165,7 +165,6 @@ func (b *amqpConsumer) Consume() (<-chan Delivery, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	feeder := make(chan Delivery)
 
 	go func() {

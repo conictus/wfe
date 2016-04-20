@@ -1,6 +1,7 @@
 package wfe
 
 import (
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/pborman/uuid"
@@ -18,27 +19,37 @@ var (
 	ErrTooManyArguments = errors.New("call with too many arguments")
 )
 
+func init() {
+	gob.Register(requestImpl{})
+}
+
 type Request interface {
 	ID() string
+	ParentID() string
 	Fn() string
 	Args() []interface{}
 }
 
 type requestImpl struct {
-	UUID      string
-	Function  string
-	Arguments []interface{}
+	ParentUUID string
+	UUID       string
+	Function   string
+	Arguments  []interface{}
 }
 
 type Response struct {
-	UUID    string
-	State   string
-	Error   string
-	Results []interface{}
+	UUID   string
+	State  string
+	Error  string
+	Result interface{}
 }
 
 func (r *requestImpl) ID() string {
 	return r.UUID
+}
+
+func (r *requestImpl) ParentID() string {
+	return r.ParentUUID
 }
 
 func (r *requestImpl) Fn() string {
@@ -47,6 +58,10 @@ func (r *requestImpl) Fn() string {
 
 func (r *requestImpl) Args() []interface{} {
 	return r.Arguments
+}
+
+func (r *requestImpl) String() string {
+	return fmt.Sprintf("%s(%v)", r.Function, r.Arguments)
 }
 
 func expectedAt(fn reflect.Type, i int) reflect.Type {
@@ -102,4 +117,12 @@ func Call(work interface{}, args ...interface{}) (Request, error) {
 	}
 
 	return call, nil
+}
+
+func MustCall(work interface{}, args ...interface{}) Request {
+	req, err := Call(work, args...)
+	if err != nil {
+		panic(err)
+	}
+	return req
 }

@@ -2,8 +2,10 @@ package wfe
 
 import (
 	"errors"
+	"fmt"
 	"github.com/op/go-logging"
 	"reflect"
+	"time"
 )
 
 var (
@@ -12,26 +14,21 @@ var (
 )
 
 type Engine struct {
-	broker  Broker
+	opt     *Options
 	store   ResultStore
 	workers int
 
-	dispatcher Dispatcher
+	client Client
 }
 
 func New(o *Options, workers int) (*Engine, error) {
-	broker, err := o.GetBroker()
-	if err != nil {
-		return nil, err
-	}
-
 	store, err := o.GetStore()
 	if err != nil {
-		return nil, err
+		log.Warningf("Failed to create a result store: %s", err)
 	}
 
 	return &Engine{
-		broker:  broker,
+		opt:     o,
 		store:   store,
 		workers: workers,
 	}, nil
@@ -39,40 +36,48 @@ func New(o *Options, workers int) (*Engine, error) {
 
 func (e *Engine) newContext(req Request) *Context {
 	return &Context{
-		id: req.ID(),
+		Client: e.client,
+		id:     req.ID(),
 	}
 }
 
-func (e *Engine) handle(req Request) ([]interface{}, error) {
+func (e *Engine) handle(req Request) (interface{}, error) {
+	log.Debugf("Calling %s", req)
 	fn, ok := fns[req.Fn()]
 	if !ok {
 		return nil, UnknownFunction
 	}
 
+	callable := reflect.ValueOf(fn)
+	callableType := callable.Type()
+
 	values := make([]reflect.Value, 0)
 	values = append(values, reflect.ValueOf(e.newContext(req)))
 
-	for _, arg := range req.Args() {
-		values = append(values, reflect.ValueOf(arg))
-	}
+	for i, arg := range req.Args() {
+		argType := expectedAt(callableType, i+1)
+		inValue := reflect.ValueOf(arg)
 
-	callable := reflect.ValueOf(fn)
-	returns := callable.Call(values)
-
-	results := make([]interface{}, 0, len(values))
-	for _, value := range returns {
-		var v interface{}
-		switch x := value.Interface().(type) {
-		case error:
-			v = Error{x.Error()}
-		default:
-			v = x
+		switch argType.Kind() {
+		case reflect.Ptr:
+			fallthrough
+		case reflect.Interface:
+			new := reflect.New(inValue.Type())
+			new.Elem().Set(inValue)
+			inValue = new
 		}
 
-		results = append(results, v)
+		values = append(values, inValue)
 	}
 
-	return results, nil
+	returns := callable.Call(values)
+
+	var result interface{}
+	if len(returns) == 1 {
+		result = returns[0].Interface()
+	}
+
+	return result, nil
 }
 
 func (e *Engine) handleDelivery(delivery Delivery) error {
@@ -89,8 +94,14 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 	}
 
 	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("Message '%s' paniced: %s", delivery.ID(), err)
+			response.State = StateError
+			response.Error = fmt.Sprintf("%v", err)
+		}
+
 		if err := e.store.Set(&response); err != nil {
-			log.Errorf("Failed to send response for id: %s", response.UUID)
+			log.Errorf("Failed to send response for id (%s): %s", response.UUID, err)
 		}
 	}()
 
@@ -100,14 +111,14 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		return err
 	}
 
-	results, err := e.handle(&req)
+	result, err := e.handle(&req)
 	if err != nil {
 		response.Error = err.Error()
 		return err
 	}
 
 	response.State = StateSuccess
-	response.Results = results
+	response.Result = result
 
 	return nil
 }
@@ -119,11 +130,9 @@ func (e *Engine) worker(queue <-chan Delivery) {
 			log.Errorf("Failed to handle message: %s", err)
 		}
 	}
-
-	log.Errorf("worker routine exited")
 }
 
-func (e *Engine) init() chan<- Delivery {
+func (e *Engine) startWorkers() chan<- Delivery {
 	ch := make(chan Delivery)
 	for i := 0; i < e.workers; i++ {
 		go e.worker(ch)
@@ -132,22 +141,64 @@ func (e *Engine) init() chan<- Delivery {
 	return ch
 }
 
-func (e *Engine) Run() error {
-	consumer, err := e.broker.Consumer(WorkQueueRoute)
+func (e *Engine) getRequestsQueue() (Broker, <-chan Delivery, error) {
+	broker, err := e.opt.GetBroker()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+
+	consumer, err := broker.Consumer(WorkQueueRoute)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	requests, err := consumer.Consume()
 	if err != nil {
-		return err
+		broker.Close()
+		return nil, nil, err
 	}
 
-	feed := e.init()
-	defer close(feed)
+	return broker, requests, nil
+}
 
-	for request := range requests {
-		feed <- request
+func (e *Engine) getClient(broker Broker) (Client, error) {
+	dispatcher, err := broker.Dispatcher(WorkQueueRoute)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &clientImpl{
+		dispatcher: dispatcher,
+		store:      e.store,
+	}, nil
+}
+
+func (e *Engine) Run() {
+	for {
+		broker, requests, err := e.getRequestsQueue()
+		if err != nil {
+			log.Errorf("Failed to connect to broker '%s': %s", e.opt.Broker, err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		client, err := e.getClient(broker)
+		if err != nil {
+			log.Errorf("Failed to intialize client: %s", err)
+		}
+
+		e.client = client
+
+		feed := e.startWorkers()
+		for request := range requests {
+			feed <- request
+		}
+		log.Warningf("Lost connection with broker")
+
+		broker.Close()
+		client.Close()
+
+		close(feed)
+	}
 }
