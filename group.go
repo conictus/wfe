@@ -29,9 +29,9 @@ func (g *groupResultImpl) get() ([]string, error) {
 
 	if ids, ok := r.([]string); ok {
 		return ids, nil
-	} else {
-		return nil, fmt.Errorf("invalid group result")
 	}
+
+	return nil, fmt.Errorf("invalid group result")
 }
 
 func (g *groupResultImpl) Count() int {

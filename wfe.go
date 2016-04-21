@@ -51,7 +51,7 @@ func (e *Engine) handle(req Request) (interface{}, error) {
 	callable := reflect.ValueOf(fn)
 	callableType := callable.Type()
 
-	values := make([]reflect.Value, 0)
+	var values []reflect.Value
 	values = append(values, reflect.ValueOf(e.newContext(req)))
 
 	for i, arg := range req.Args() {

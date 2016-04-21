@@ -24,9 +24,8 @@ func StringResult(r interface{}, err error) (string, error) {
 
 	if x, ok := r.(string); ok {
 		return x, err
-	} else {
-		return "", fmt.Errorf("not string")
 	}
+	return "", fmt.Errorf("not string")
 }
 
 func StringListResult(r interface{}, err error) ([]string, error) {
@@ -36,9 +35,8 @@ func StringListResult(r interface{}, err error) ([]string, error) {
 
 	if x, ok := r.([]string); ok {
 		return x, err
-	} else {
-		return nil, fmt.Errorf("not string list")
 	}
+	return nil, fmt.Errorf("not string list")
 }
 
 func IntResult(r interface{}, err error) (int, error) {
@@ -48,7 +46,7 @@ func IntResult(r interface{}, err error) (int, error) {
 
 	if x, ok := r.(int); ok {
 		return x, err
-	} else {
-		return 0, fmt.Errorf("not int")
 	}
+
+	return 0, fmt.Errorf("not int")
 }
