@@ -23,6 +23,13 @@ func init() {
 	gob.Register(requestImpl{})
 }
 
+type Response struct {
+	UUID   string
+	State  string
+	Error  string
+	Result interface{}
+}
+
 type Request interface {
 	ID() string
 	ParentID() string
@@ -30,18 +37,17 @@ type Request interface {
 	Args() []interface{}
 }
 
+type PartialRequest interface {
+	Request
+	Append(arg interface{})
+	Request() (Request, error)
+}
+
 type requestImpl struct {
 	ParentUUID string
 	UUID       string
 	Function   string
 	Arguments  []interface{}
-}
-
-type Response struct {
-	UUID   string
-	State  string
-	Error  string
-	Result interface{}
 }
 
 func (r *requestImpl) ID() string {
@@ -64,6 +70,19 @@ func (r *requestImpl) String() string {
 	return fmt.Sprintf("%s(%v)", r.Function, r.Arguments)
 }
 
+func (r *requestImpl) Append(arg interface{}) {
+	r.Arguments = append(r.Arguments, arg)
+}
+
+func (r *requestImpl) Request() (Request, error) {
+	fn, ok := fns[r.Function]
+	if !ok {
+		return nil, fmt.Errorf("unknown function '%s'", r.Function)
+	}
+
+	return Call(fn, r.Arguments...)
+}
+
 func expectedAt(fn reflect.Type, i int) reflect.Type {
 	if fn.IsVariadic() && i >= fn.NumIn()-1 {
 		argvType := fn.In(fn.NumIn() - 1)
@@ -72,16 +91,17 @@ func expectedAt(fn reflect.Type, i int) reflect.Type {
 	return fn.In(i)
 }
 
-func validateArgs(fn reflect.Type, args ...interface{}) error {
+func validateArgs(fn reflect.Type, partial bool, args ...interface{}) error {
 	numIn := len(args)
 	expectedIn := fn.NumIn() - 1 //we ignore the context arg
 	if fn.IsVariadic() {
 		expectedIn--
 	}
 
-	if numIn < expectedIn {
+	if !partial && numIn < expectedIn {
 		return ErrTooFewArguments
 	}
+
 	if !fn.IsVariadic() && numIn > expectedIn {
 		return ErrTooManyArguments
 	}
@@ -98,7 +118,7 @@ func validateArgs(fn reflect.Type, args ...interface{}) error {
 	return nil
 }
 
-func Call(work interface{}, args ...interface{}) (Request, error) {
+func makeCall(work interface{}, partial bool, args ...interface{}) (*requestImpl, error) {
 	fn := reflect.ValueOf(work)
 	if err := validateWorkFunc(fn); err != nil {
 		return nil, err
@@ -106,7 +126,7 @@ func Call(work interface{}, args ...interface{}) (Request, error) {
 
 	//validate arguments list types
 	t := fn.Type()
-	if err := validateArgs(t, args...); err != nil {
+	if err := validateArgs(t, partial, args...); err != nil {
 		return nil, err
 	}
 
@@ -119,8 +139,24 @@ func Call(work interface{}, args ...interface{}) (Request, error) {
 	return call, nil
 }
 
+func Call(work interface{}, args ...interface{}) (Request, error) {
+	return makeCall(work, false, args...)
+}
+
+func PartialCall(work interface{}, args ...interface{}) (PartialRequest, error) {
+	return makeCall(work, true, args...)
+}
+
 func MustCall(work interface{}, args ...interface{}) Request {
 	req, err := Call(work, args...)
+	if err != nil {
+		panic(err)
+	}
+	return req
+}
+
+func MustPartialCall(work interface{}, args ...interface{}) PartialRequest {
+	req, err := PartialCall(work, args...)
 	if err != nil {
 		panic(err)
 	}
