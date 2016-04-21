@@ -12,25 +12,18 @@ func chain(ctx *Context, request Request, chain ...PartialRequest) interface{} {
 	var v interface{}
 
 	for _, ch := range chain {
-		v, err = res.Get()
-		if err != nil {
-			panic(err)
-		}
+		v = res.MustGet()
+
 		ch.Append(v)
 		chReq, err := ch.Request()
 		if err != nil {
 			panic(err)
 		}
 
-		res, err = ctx.Apply(chReq)
+		res = ctx.MustApply(chReq)
 	}
 
-	v, err = res.Get()
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return res.MustGet()
 }
 
 func (c *clientImpl) Chain(request Request, callbacks ...PartialRequest) (Result, error) {

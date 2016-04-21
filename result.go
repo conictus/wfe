@@ -13,6 +13,7 @@ func init() {
 type Result interface {
 	ID() string
 	Get() (interface{}, error)
+	MustGet() interface{}
 }
 
 type resultImpl struct {
@@ -35,6 +36,15 @@ func (r *resultImpl) Get() (interface{}, error) {
 	})
 
 	return r.value, r.err
+}
+
+func (r *resultImpl) MustGet() interface{} {
+	v, e := r.Get()
+	if e != nil {
+		panic(e)
+	}
+
+	return v
 }
 
 func (r *resultImpl) get() (interface{}, error) {

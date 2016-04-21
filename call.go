@@ -67,7 +67,7 @@ func (r *requestImpl) Args() []interface{} {
 }
 
 func (r *requestImpl) String() string {
-	return fmt.Sprintf("%s(%v)", r.Function, r.Arguments)
+	return fmt.Sprintf("%s.%s %s(%v)", r.ParentUUID, r.UUID, r.Function, r.Arguments)
 }
 
 func (r *requestImpl) Append(arg interface{}) {

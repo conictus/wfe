@@ -125,7 +125,7 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 
 func (e *Engine) worker(queue <-chan Delivery) {
 	for request := range queue {
-		log.Debugf("received request: %s", request.ID())
+		log.Debugf("received message: %s", request.ID())
 		if err := e.handleDelivery(request); err != nil {
 			log.Errorf("Failed to handle message: %s", err)
 		}
