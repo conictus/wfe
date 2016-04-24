@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/bitbucket.org/conictus/wfe?status.svg)](https://godoc.org/bitbucket.org/conictus/wfe)
+
 # Introduction
 WFE is an asynchronous task queue/job queue based on distributed message passing. It is focused on real-time operation.
 The execution units, called tasks, are executed concurrently on a single or more worker servers using multiprocessing go routines.
