@@ -33,6 +33,7 @@ type Client interface {
 type clientImpl struct {
 	dispatcher Dispatcher
 	store      ResultStore
+	parentID   string
 }
 
 //NewClient creates a new client instance.
@@ -71,6 +72,12 @@ func (c *clientImpl) ResultFor(id string) Result {
 }
 
 func (c *clientImpl) Apply(req Request) (Result, error) {
+	if c.parentID != "" {
+		if req, ok := req.(*requestImpl); ok {
+			req.ParentUUID = c.parentID
+		}
+	}
+
 	msg := Message{
 		ID:      req.ID(),
 		Content: req,

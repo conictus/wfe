@@ -26,7 +26,7 @@ type Engine struct {
 	store   ResultStore
 	workers int
 
-	client Client
+	dispatcher Dispatcher
 }
 
 /*
@@ -48,8 +48,12 @@ func New(o *Options, workers int) (*Engine, error) {
 
 func (e *Engine) newContext(req Request) *Context {
 	return &Context{
-		Client: e.client,
-		id:     req.ID(),
+		Client: &clientImpl{
+			dispatcher: e.dispatcher,
+			store:      e.store,
+			parentID:   req.ID(),
+		},
+		id: req.ID(),
 	}
 }
 
@@ -173,19 +177,6 @@ func (e *Engine) getRequestsQueue() (Broker, <-chan Delivery, error) {
 	return broker, requests, nil
 }
 
-func (e *Engine) getClient(broker Broker) (Client, error) {
-	dispatcher, err := broker.Dispatcher(WorkQueueRoute)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &clientImpl{
-		dispatcher: dispatcher,
-		store:      e.store,
-	}, nil
-}
-
 //Run start processing messages.
 func (e *Engine) Run() {
 	for {
@@ -196,12 +187,12 @@ func (e *Engine) Run() {
 			continue
 		}
 
-		client, err := e.getClient(broker)
+		dispatcher, err := broker.Dispatcher(WorkQueueRoute)
 		if err != nil {
 			log.Errorf("Failed to intialize client: %s", err)
 		}
 
-		e.client = client
+		e.dispatcher = dispatcher
 
 		feed := e.startWorkers()
 		for request := range requests {
@@ -210,7 +201,7 @@ func (e *Engine) Run() {
 		log.Warningf("Lost connection with broker")
 
 		broker.Close()
-		client.Close()
+		dispatcher.Close()
 
 		close(feed)
 	}
