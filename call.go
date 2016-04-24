@@ -10,12 +10,18 @@ import (
 )
 
 const (
+	//StateSuccess notates tasks has exited without an error
 	StateSuccess = "success"
-	StateError   = "error"
+
+	//StateError notates tasks has exited with an error
+	StateError = "error"
 )
 
 var (
-	ErrTooFewArguments  = errors.New("call with too few arguments")
+	//ErrTooFewArguments task expecting more arguments than provided.
+	ErrTooFewArguments = errors.New("call with too few arguments")
+
+	//ErrTooManyArguments task expecting fewer arguments than provided.
 	ErrTooManyArguments = errors.New("call with too many arguments")
 )
 
@@ -23,13 +29,19 @@ func init() {
 	gob.Register(requestImpl{})
 }
 
+//Response returned by the wfe after a task finishes.
 type Response struct {
-	UUID   string
-	State  string
-	Error  string
+	//UUID request UUID
+	UUID string
+	//Exit state of task execution (StateSuccess, StateError)
+	State string
+	//Error message if State != StateSuccess
+	Error string
+	//Result object returned by the task
 	Result interface{}
 }
 
+//Request interface
 type Request interface {
 	ID() string
 	ParentID() string
@@ -37,6 +49,8 @@ type Request interface {
 	Args() []interface{}
 }
 
+//PartialRequest is a request with fewer arguments than the task expect.
+//Is used to build callbacks and chains when a response of one task is fed to another in a chain
 type PartialRequest interface {
 	Request
 	Append(arg interface{})
@@ -139,14 +153,33 @@ func makeCall(work interface{}, partial bool, args ...interface{}) (*requestImpl
 	return call, nil
 }
 
+/*
+Call creates a new `Request`
+Example:
+	func Task(c *Context, a, b int) int {
+		return a + b
+	}
+
+	//from the caller
+	req, _ := wfe.Call(Task, 1, 2)
+	client.Apply(req)
+A call will fail to create a request if the number of arguments doesn't match the required arguments of the task function
+or if the types don't match.
+*/
 func Call(work interface{}, args ...interface{}) (Request, error) {
 	return makeCall(work, false, args...)
 }
 
+/*
+PartialCall create a new `PartialCall`. Partial calls can be used in chains and chords as a callbacks.
+*/
 func PartialCall(work interface{}, args ...interface{}) (PartialRequest, error) {
 	return makeCall(work, true, args...)
 }
 
+/*
+MustCall creates a new call request, panics if the request can't be created.
+*/
 func MustCall(work interface{}, args ...interface{}) Request {
 	req, err := Call(work, args...)
 	if err != nil {
@@ -155,6 +188,9 @@ func MustCall(work interface{}, args ...interface{}) Request {
 	return req
 }
 
+/*
+MustPartialCall create a new `PartialRequest`, panics if the request can't be created
+*/
 func MustPartialCall(work interface{}, args ...interface{}) PartialRequest {
 	req, err := PartialCall(work, args...)
 	if err != nil {

@@ -10,9 +10,15 @@ func init() {
 	gob.Register(interface{}(0))
 }
 
+//Result interface
 type Result interface {
+	//ID of the result (matches the Request ID)
 	ID() string
+
+	//Get waits for the task to finish and return the returned object and an error if the task failed
 	Get() (interface{}, error)
+
+	//MustGet same as Get but panics on error.
 	MustGet() interface{}
 }
 

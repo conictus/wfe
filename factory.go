@@ -13,14 +13,32 @@ var (
 	sm sync.Mutex
 )
 
+//BrokerFactory function type
 type BrokerFactory func(u *url.URL) (Broker, error)
+
+//ResultStoreFactory function type
 type ResultStoreFactory func(u *url.URL) (ResultStore, error)
 
+//Options is used to configure both the Engine and the Client instances. It specifies the broker and the result store
+//to use
 type Options struct {
+	//Broker URL `amqp://localhost:5672`
 	Broker string
-	Store  string
+
+	//Store URL `redis://localhost:6379?keep=30`
+	Store string
 }
 
+/*
+RegisterBroker is used to register a broker factory. In case you need to implement your own broker layer.
+WFE package implements the `amqp` broker which uses rabbitmq
+
+	RegisterBroker('fake', fakeFactory)
+
+	o := &Options{
+		Broker: "fake://host/?args",
+	}
+*/
 func RegisterBroker(scheme string, factory BrokerFactory) {
 	bm.Lock()
 	defer bm.Unlock()
@@ -28,6 +46,8 @@ func RegisterBroker(scheme string, factory BrokerFactory) {
 	brokers[scheme] = factory
 }
 
+//RegisterResultStore is used to register a result store factory. In case you need to implement your own store layer.
+//WFE package implements
 func RegisterResultStore(scheme string, factory ResultStoreFactory) {
 	sm.Lock()
 	defer sm.Unlock()
@@ -35,6 +55,7 @@ func RegisterResultStore(scheme string, factory ResultStoreFactory) {
 	stores[scheme] = factory
 }
 
+//GetBroker gets a new instance of the broker according to the broker url
 func (o *Options) GetBroker() (Broker, error) {
 	u, err := url.Parse(o.Broker)
 	if err != nil {
@@ -53,6 +74,7 @@ func (o *Options) GetBroker() (Broker, error) {
 	return factory(u)
 }
 
+//GetStore gets a new instance of the result store according to the store url
 func (o *Options) GetStore() (ResultStore, error) {
 	u, err := url.Parse(o.Store)
 	if err != nil {

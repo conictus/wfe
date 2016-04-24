@@ -1,3 +1,8 @@
+/*
+Package wfe is an asynchronous task queue/job queue based on distributed message passing. It is focused on real-time operation
+The execution units, called tasks, are executed concurrently on a single or more worker servers using multiprocessing.
+Tasks can execute asynchronously (in the background) or synchronously (wait until ready).
+*/
 package wfe
 
 import (
@@ -9,10 +14,13 @@ import (
 )
 
 var (
-	log             = logging.MustGetLogger("wfe")
-	UnknownFunction = errors.New("unkonwn function")
+	log = logging.MustGetLogger("wfe")
+
+	//ErrUnknownFunction returned by the engine if a client is calling an unregistered function
+	ErrUnknownFunction = errors.New("unkonwn function")
 )
 
+//Engine is responsible for running the tasks concurrently. It processes users messages and executes them
 type Engine struct {
 	opt     *Options
 	store   ResultStore
@@ -21,6 +29,10 @@ type Engine struct {
 	client Client
 }
 
+/*
+New creates a new engine with the given options and the number of workers routines. The number of workers routines
+controllers how many parallel tasks can be run concurrently on this engine instance.
+*/
 func New(o *Options, workers int) (*Engine, error) {
 	store, err := o.GetStore()
 	if err != nil {
@@ -45,7 +57,7 @@ func (e *Engine) handle(req Request) (interface{}, error) {
 	log.Debugf("Calling %s", req)
 	fn, ok := fns[req.Fn()]
 	if !ok {
-		return nil, UnknownFunction
+		return nil, ErrUnknownFunction
 	}
 
 	callable := reflect.ValueOf(fn)
@@ -174,6 +186,7 @@ func (e *Engine) getClient(broker Broker) (Client, error) {
 	}, nil
 }
 
+//Run start processing messages.
 func (e *Engine) Run() {
 	for {
 		broker, requests, err := e.getRequestsQueue()

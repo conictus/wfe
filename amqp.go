@@ -35,10 +35,6 @@ func (r *amqpDelivery) Content(c interface{}) error {
 	return nil
 }
 
-func (r *amqpDelivery) ReplyQueue() string {
-	return r.ReplyTo
-}
-
 type amqpBroker struct {
 	con *amqp.Connection
 	//ctx     context.Context
@@ -150,7 +146,6 @@ func (b *amqpDispatcher) Dispatch(msg *Message) error {
 		DeliveryMode:    amqp.Persistent,
 		ContentType:     amqpContentType,
 		ContentEncoding: amqpContentEncoding,
-		ReplyTo:         msg.ReplyTo,
 		Body:            buffer.Bytes(),
 		CorrelationId:   msg.ID,
 	})

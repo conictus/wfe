@@ -1,50 +1,84 @@
 package wfe
 
 const (
-	WorkQueue = "wfe.work"
+	workQueue = "wfe.work"
 )
 
 var (
+	//WorkQueueRoute default route options for work queue. It declares the 'wfe.work' as durable queue
 	WorkQueueRoute = &RouteOptions{
-		Queue:   WorkQueue,
+		Queue:   workQueue,
 		Durable: true,
 	}
 )
 
+//RouteOptions specifies route and queuing options for both consumers and dispatchers.
 type RouteOptions struct {
-	Queue       string
-	Durable     bool
-	AutoDelete  bool
-	Exclusive   bool
+	//Queue name
+	Queue string
+	//Durable flag
+	Durable bool
+	//AutoDelete flag
+	AutoDelete bool
+	//Exclusive flag
+	Exclusive bool
+	//AutoConfirm flag (for brokers that implements delivery confirmation
 	AutoConfirm bool
 }
 
+//Broker interface
 type Broker interface {
+	//Close broker connections. Close must force the broker Consumer to return
 	Close() error
+
+	//Dispatcher gets a dispatcher instance according to the RouterOptions specified.
 	Dispatcher(o *RouteOptions) (Dispatcher, error)
+
+	//Consumer gets a consumer instance according to the RouterOptions specified.
 	Consumer(o *RouteOptions) (Consumer, error)
 }
 
+//Message content
 type Message struct {
 	ID      string
 	Queue   string
 	Content interface{}
-	ReplyTo string
 }
 
+//Dispatcher interface
 type Dispatcher interface {
+	//Close dispatcher
 	Close() error
+
+	//Dispatch msg
 	Dispatch(msg *Message) error
 }
 
+//Consumer interfaec
 type Consumer interface {
+	//Close consumer
 	Close() error
+
+	//Consume gets a Deliver channel. the delivery channel is auto closed if the broker connection is lost
+	//or the consumer is closed explicitly.
 	Consume() (<-chan Delivery, error)
 }
 
+//Delivery interface
 type Delivery interface {
+	//Delivery ID
 	ID() string
+
+	//Confirm, confirms the delivery. (If needed by the broker) or NOOP if not
 	Confirm() error
-	ReplyQueue() string
+
+	/*
+		Content, loads the message content
+
+			var o Object
+			if err := d.Content(&o); err != nil {
+				//handle error.
+			}
+	*/
 	Content(c interface{}) error
 }

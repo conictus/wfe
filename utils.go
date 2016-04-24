@@ -17,6 +17,7 @@ func parseInt(s string, d int) (int, error) {
 	return v, nil
 }
 
+//StringResult returns results as string
 func StringResult(r interface{}, err error) (string, error) {
 	if err != nil {
 		return "", err
@@ -28,6 +29,7 @@ func StringResult(r interface{}, err error) (string, error) {
 	return "", fmt.Errorf("not string")
 }
 
+//StringListResult returns results as a string slice
 func StringListResult(r interface{}, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
@@ -39,6 +41,7 @@ func StringListResult(r interface{}, err error) ([]string, error) {
 	return nil, fmt.Errorf("not string list")
 }
 
+//IntResult returns results as int
 func IntResult(r interface{}, err error) (int, error) {
 	if err != nil {
 		return 0, err

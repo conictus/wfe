@@ -32,6 +32,26 @@ func validateWorkFunc(v reflect.Value) error {
 	return nil
 }
 
+/*
+Register a task function. A task function must accept a `*Context` as first argument followed by and any number of arguments
+needed by the task. A task function can return zero or one object.
+Register panics if the task signature is wrongThe register process usually happens inside an init function
+
+Example:
+	func Add(c *gin.Context, args ...int) {
+		v := 0
+		for i := 0; i < len(args); i++ {
+			v += i
+		}
+		return v
+	}
+
+	func init() {
+		wfe.Register(Add)
+	}
+
+Note: A task can return an error by a panic
+*/
 func Register(fn interface{}) {
 	v := reflect.ValueOf(fn)
 	if err := validateWorkFunc(v); err != nil {

@@ -11,16 +11,24 @@ import (
 )
 
 const (
-	ResultQueueTmpl = "wfe.result.%s"
-	DefaultTimeout  = -1
+	resultQueueTmpl = "wfe.result.%s"
+
+	//DefaultTimeout notates that a store should use it's default timeout
+	DefaultTimeout = -1
 )
 
 var (
+	//ErrTimeout timeout
 	ErrTimeout = errors.New("timeout")
 )
 
+//ResultStore interface
 type ResultStore interface {
+	//Set a response in the result store
 	Set(response *Response) error
+
+	//Get a response from the result store, it blocks until a response is available or timeout is reached.
+	//if timeout=DefaultTimeout, then the timeout is the default store timeout
 	Get(id string, timeout int) (*Response, error)
 }
 
@@ -87,7 +95,7 @@ func (s *redisStore) Set(response *Response) error {
 
 	conn := s.pool.Get()
 	defer conn.Close()
-	queue := fmt.Sprintf(ResultQueueTmpl, response.UUID)
+	queue := fmt.Sprintf(resultQueueTmpl, response.UUID)
 	conn.Send("MULTI")
 	conn.Send("LPUSH", queue, buffer.String())
 	conn.Send("EXPIRE", queue, s.keep)
@@ -102,7 +110,7 @@ func (s *redisStore) Get(uuid string, timeout int) (*Response, error) {
 		timeout = s.timeout
 	}
 
-	queue := fmt.Sprintf(ResultQueueTmpl, uuid)
+	queue := fmt.Sprintf(resultQueueTmpl, uuid)
 	result, err := redis.Bytes(conn.Do("BRPOPLPUSH", queue, queue, timeout))
 	if err == redis.ErrNil {
 		return nil, ErrTimeout

@@ -10,9 +10,14 @@ func init() {
 	Register(group)
 }
 
+//GroupResult interface
 type GroupResult interface {
 	Result
+
+	//ResultOf gets result of group task with index `i`
 	ResultOf(i int) (Result, error)
+
+	//Count gets number of parallel tasks in the group
 	Count() int
 }
 
