@@ -27,7 +27,6 @@ that the project is still under development and still missing lots of features.
 ## Create your work functions
 First of all you need to declare your work function, the function that can be executed asynchronously on remote workers.
 
-    // under the work/functions package
     package functions
 
     //Note that all work function must accept an instace of `*wfe.Context` as first argument
