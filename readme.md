@@ -46,7 +46,7 @@ First of all you need to declare your work function, the function that can be ex
         return v
     }
 
-    def init() {
+    func init() {
         //Register the work function
         wfe.Register(Add)
         wfe.Register(Mulitply)
@@ -59,7 +59,7 @@ A worker app must import your work functions so the work functions are registere
         _ "work/functions"
     )
 
-    def main() {
+    func main() {
         //currently we only support amqp as a broker and redis as a result store
         engine, err := wfe.New(&wfe.Options{
             Broker: "amqp://localhost:5672",
@@ -80,7 +80,7 @@ A client app must import your work functions so the work function are registered
         "work/functions"
     )
 
-    def main() {
+    func main() {
         client, err := wfe.NewClient(&wfe.Options{
             Broker: "amqp://localhost:5672",
             Store:  "redis://localhost:6379?timeout=30",
