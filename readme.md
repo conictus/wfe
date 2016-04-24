@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/bitbucket.org/conictus/wfe?status.svg)](https://godoc.org/bitbucket.org/conictus/wfe)
+
 # Introduction
 WFE is an asynchronous task queue/job queue based on distributed message passing. It is focused on real-time operation.
 The execution units, called tasks, are executed concurrently on a single or more worker servers using multiprocessing go routines.
@@ -25,7 +27,6 @@ that the project is still under development and still missing lots of features.
 ## Create your work functions
 First of all you need to declare your work function, the function that can be executed asynchronously on remote workers.
 
-    // under the work/functions package
     package functions
 
     //Note that all work function must accept an instace of `*wfe.Context` as first argument
