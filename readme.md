@@ -1,4 +1,4 @@
-[![GoDoc](https://godoc.org/bitbucket.org/conictus/wfe?status.svg)](https://godoc.org/bitbucket.org/conictus/wfe)
+[![GoDoc](https://godoc.org/github.com/conictus/wfe?status.svg)](https://godoc.org/github.com/conictus/wfe)
 
 # Introduction
 WFE is an asynchronous task queue/job queue based on distributed message passing. It is focused on real-time operation.
