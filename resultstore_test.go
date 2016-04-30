@@ -101,7 +101,7 @@ func TestRedisStoreDefaultTimeout(t *testing.T) {
 		t.Fatal()
 	}
 	d := time.Since(ts)
-	delta := 10 * time.Millisecond
+	delta := 1000 * time.Millisecond
 
 	if ok := assert.InDelta(t, int64(3*time.Second), int64(d), float64(delta)); !ok {
 		t.Fatal()
