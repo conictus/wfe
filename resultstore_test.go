@@ -101,7 +101,8 @@ func TestRedisStoreDefaultTimeout(t *testing.T) {
 		t.Fatal()
 	}
 	d := time.Since(ts)
-	delta := 1000 * time.Millisecond
+	//we increased the delta, because codeship redis apparently is very slow
+	delta := 2 * time.Second
 
 	if ok := assert.InDelta(t, int64(3*time.Second), int64(d), float64(delta)); !ok {
 		t.Fatal()
