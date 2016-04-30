@@ -1,4 +1,5 @@
 [![GoDoc](https://godoc.org/github.com/conictus/wfe?status.svg)](https://godoc.org/github.com/conictus/wfe)
+![Codeship build](https://codeship.com/projects/4f84e080-f0f0-0133-b138-3e251e5cf642/status?branch=master)
 
 # Introduction
 WFE is an asynchronous task queue/job queue based on distributed message passing. It is focused on real-time operation.
