@@ -62,5 +62,11 @@ func (t *testStore) Set(response *Response) error {
 
 func (t *testStore) Get(id string, timeout int) (*Response, error) {
 	args := t.Called(id, timeout)
-	return args.Get(0).(*Response), args.Error(1)
+	v := args.Get(0)
+	var r *Response
+	if v != nil {
+		r = v.(*Response)
+	}
+
+	return r, args.Error(1)
 }
