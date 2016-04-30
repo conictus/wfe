@@ -48,7 +48,7 @@ func New(o *Options, workers int) (*Engine, error) {
 
 func (e *Engine) newContext(req Request) *Context {
 	return &Context{
-		Client: &clientImpl{
+		client: &clientImpl{
 			dispatcher: e.dispatcher,
 			store:      e.store,
 			parentID:   req.ID(),
