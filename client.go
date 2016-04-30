@@ -48,6 +48,10 @@ func NewClient(o *Options) (Client, error) {
 		return nil, err
 	}
 
+	return newClient(broker, store)
+}
+
+func newClient(broker Broker, store ResultStore) (*clientImpl, error) {
 	dispatcher, err := broker.Dispatcher(WorkQueueRoute)
 
 	if err != nil {
