@@ -26,6 +26,7 @@ type Engine struct {
 	store   ResultStore
 	workers int
 
+	mw         middlewareStack
 	dispatcher Dispatcher
 }
 
@@ -53,7 +54,8 @@ func (e *Engine) newContext(req Request) *Context {
 			store:      e.store,
 			parentID:   req.ID(),
 		},
-		id: req.ID(),
+		id:     req.ID(),
+		values: make(map[string]interface{}),
 	}
 }
 
@@ -68,7 +70,11 @@ func (e *Engine) handle(req Request) (interface{}, error) {
 	callableType := callable.Type()
 
 	var values []reflect.Value
-	values = append(values, reflect.ValueOf(e.newContext(req)))
+	ctx := e.newContext(req)
+	e.mw.Enter(ctx)
+	defer e.mw.Exit(ctx)
+
+	values = append(values, reflect.ValueOf(ctx))
 
 	for i, arg := range req.Args() {
 		argType := expectedAt(callableType, i+1)
@@ -175,6 +181,11 @@ func (e *Engine) getRequestsQueue() (Broker, <-chan Delivery, error) {
 	}
 
 	return broker, requests, nil
+}
+
+//Use a middleware
+func (e *Engine) Use(m Middleware) {
+	e.mw = append(e.mw, m)
 }
 
 //Run start processing messages.

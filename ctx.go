@@ -1,15 +1,39 @@
 package wfe
 
+import "fmt"
+
 //Context is always the first argument to a Task function. It's mainly used by a task to start and spawn other tasks.
 //Context implements the Client interface.
 type Context struct {
 	client Client
 	id     string
+
+	values map[string]interface{}
 }
 
 //UUID of the current task.
 func (c *Context) UUID() string {
 	return c.id
+}
+
+//Set store a variable on the ctx. Should be used by middleware to inject values to tasks
+func (c *Context) Set(name string, value interface{}) {
+	c.values[name] = value
+}
+
+//Get returns a value previously stored by Set.
+func (c *Context) Get(name string) (interface{}, bool) {
+	v, ok := c.values[name]
+	return v, ok
+}
+
+//MustGet like Get but panics if name is not found.
+func (c *Context) MustGet(name string) interface{} {
+	if v, ok := c.Get(name); !ok {
+		panic(fmt.Errorf("key not found '%s'", name))
+	} else {
+		return v
+	}
 }
 
 //MustApply same as Apply but panics on error.
@@ -47,7 +71,7 @@ func (c *Context) Chord(callback PartialRequest, requests ...Request) (Result, e
 }
 
 /*
-	Get a result instance for a running task knowing the task id
+ResultFor Gets a result instance for a running task knowing the task id
 */
 func (c *Context) ResultFor(id string) Result {
 	return c.client.ResultFor(id)
