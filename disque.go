@@ -5,19 +5,23 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/goware/disque"
+	"net/url"
 )
 
-////Broker interface
-//type Broker interface {
-//	//Close broker connections. Close must force the broker Consumer to return
-//	Close() error
-//
-//	//Dispatcher gets a dispatcher instance according to the RouterOptions specified.
-//	Dispatcher(o *RouteOptions) (Dispatcher, error)
-//
-//	//Consumer gets a consumer instance according to the RouterOptions specified.
-//	Consumer(o *RouteOptions) (Consumer, error)
-//}
+func init() {
+	RegisterBroker("disque", func(u *url.URL) (Broker, error) {
+		pool, err := disque.New(u.Host)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := pool.Ping(); err != nil {
+			return nil, err
+		}
+
+		return &disqueBroker{pool: pool}, nil
+	})
+}
 
 type disqueBroker struct {
 	pool *disque.Pool
@@ -47,14 +51,6 @@ func (d *disqueDelivery) Content(c interface{}) error {
 	return nil
 }
 
-//type disqueDispatcher struct {
-//	pool *disque.Pool
-//}
-//
-//type disqueConsumer struct {
-//	pool disque.Pool
-//}
-
 func (b *disqueBroker) Close() error {
 	return b.pool.Close()
 }
@@ -62,14 +58,14 @@ func (b *disqueBroker) Close() error {
 func (b *disqueBroker) Dispatcher(o *RouteOptions) (Dispatcher, error) {
 	return &disqueBroker{
 		pool: b.pool,
-		opt:  b.opt,
+		opt:  o,
 	}, nil
 }
 
 func (b *disqueBroker) Consumer(o *RouteOptions) (Consumer, error) {
 	return &disqueBroker{
 		pool: b.pool,
-		opt:  b.opt,
+		opt:  o,
 	}, nil
 }
 
@@ -115,23 +111,3 @@ func (b *disqueBroker) Consume() (<-chan Delivery, error) {
 
 	return deliveries, nil
 }
-
-//
-////Dispatcher interface
-//type Dispatcher interface {
-//	//Close dispatcher
-//	Close() error
-//
-//	//Dispatch msg
-//	Dispatch(msg *Message) error
-//}
-//
-////Consumer interfaec
-//type Consumer interface {
-//	//Close consumer
-//	Close() error
-//
-//	//Consume gets a Deliver channel. the delivery channel is auto closed if the broker connection is lost
-//	//or the consumer is closed explicitly.
-//	Consume() (<-chan Delivery, error)
-//}
