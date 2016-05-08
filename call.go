@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/pborman/uuid"
 	"reflect"
 	"runtime"
 )
@@ -43,7 +42,6 @@ type Response struct {
 
 //Request interface
 type Request interface {
-	ID() string
 	ParentID() string
 	Fn() string
 	Args() []interface{}
@@ -59,13 +57,8 @@ type PartialRequest interface {
 
 type requestImpl struct {
 	ParentUUID string
-	UUID       string
 	Function   string
 	Arguments  []interface{}
-}
-
-func (r *requestImpl) ID() string {
-	return r.UUID
 }
 
 func (r *requestImpl) ParentID() string {
@@ -81,7 +74,7 @@ func (r *requestImpl) Args() []interface{} {
 }
 
 func (r *requestImpl) String() string {
-	return fmt.Sprintf("%s.%s %s(%v)", r.ParentUUID, r.UUID, r.Function, r.Arguments)
+	return fmt.Sprintf("parent(%s) %s(%v)", r.ParentUUID, r.Function, r.Arguments)
 }
 
 func (r *requestImpl) Append(arg interface{}) {
@@ -145,7 +138,6 @@ func makeCall(work interface{}, partial bool, args ...interface{}) (*requestImpl
 	}
 
 	call := &requestImpl{
-		UUID:      uuid.New(),
 		Function:  runtime.FuncForPC(fn.Pointer()).Name(),
 		Arguments: args,
 	}

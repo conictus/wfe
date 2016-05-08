@@ -47,19 +47,19 @@ func New(o *Options, workers int) (*Engine, error) {
 	}, nil
 }
 
-func (e *Engine) newContext(req Request) *Context {
+func (e *Engine) newContext(id string, req Request) *Context {
 	return &Context{
 		client: &clientImpl{
 			dispatcher: e.dispatcher,
 			store:      e.store,
-			parentID:   req.ID(),
+			parentID:   id,
 		},
-		id:     req.ID(),
+		id:     id,
 		values: make(map[string]interface{}),
 	}
 }
 
-func (e *Engine) handle(req Request) (interface{}, error) {
+func (e *Engine) handle(id string, req Request) (interface{}, error) {
 	log.Debugf("Calling %s", req)
 	fn, ok := fns[req.Fn()]
 	if !ok {
@@ -70,7 +70,7 @@ func (e *Engine) handle(req Request) (interface{}, error) {
 	callableType := callable.Type()
 
 	var values []reflect.Value
-	ctx := e.newContext(req)
+	ctx := e.newContext(id, req)
 	e.mw.Enter(ctx)
 	defer e.mw.Exit(ctx)
 
@@ -133,7 +133,7 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		return err
 	}
 
-	result, err := e.handle(&req)
+	result, err := e.handle(delivery.ID(), &req)
 	if err != nil {
 		response.Error = err.Error()
 		return err

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/pborman/uuid"
 	"github.com/streadway/amqp"
 	"net/url"
 )
@@ -126,11 +127,11 @@ func (b *amqpBroker) Close() error {
 	return b.con.Close()
 }
 
-func (b *amqpDispatcher) Dispatch(msg *Message) error {
+func (b *amqpDispatcher) Dispatch(msg *Message) (string, error) {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
 	if err := encoder.Encode(msg.Content); err != nil {
-		return err
+		return "", err
 	}
 
 	queue := msg.Queue
@@ -139,15 +140,17 @@ func (b *amqpDispatcher) Dispatch(msg *Message) error {
 	}
 
 	if queue == "" {
-		return fmt.Errorf("queue is not set")
+		return "", fmt.Errorf("queue is not set")
 	}
 
-	return b.ch.Publish("", queue, false, false, amqp.Publishing{
+	id := uuid.New()
+
+	return id, b.ch.Publish("", queue, false, false, amqp.Publishing{
 		DeliveryMode:    amqp.Persistent,
 		ContentType:     amqpContentType,
 		ContentEncoding: amqpContentEncoding,
 		Body:            buffer.Bytes(),
-		CorrelationId:   msg.ID,
+		CorrelationId:   id,
 	})
 }
 

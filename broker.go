@@ -40,7 +40,6 @@ type Broker interface {
 
 //Message content
 type Message struct {
-	ID      string
 	Queue   string
 	Content interface{}
 }
@@ -51,7 +50,7 @@ type Dispatcher interface {
 	Close() error
 
 	//Dispatch msg
-	Dispatch(msg *Message) error
+	Dispatch(msg *Message) (string, error)
 }
 
 //Consumer interfaec

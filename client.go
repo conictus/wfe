@@ -83,16 +83,16 @@ func (c *clientImpl) Apply(req Request) (Result, error) {
 	}
 
 	msg := Message{
-		ID:      req.ID(),
 		Content: req,
 	}
 
-	if err := c.dispatcher.Dispatch(&msg); err != nil {
+	id, err := c.dispatcher.Dispatch(&msg)
+	if err != nil {
 		return nil, err
 	}
 
 	result := &resultImpl{
-		id:    req.ID(),
+		id:    id,
 		store: c.store,
 	}
 
