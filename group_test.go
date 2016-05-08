@@ -12,13 +12,13 @@ type groupDispatcher struct {
 	msg *Message
 }
 
-func (g *groupDispatcher) Dispatch(msg *Message) error {
+func (g *groupDispatcher) Dispatch(msg *Message) (string, error) {
 	if g.err {
-		return fmt.Errorf("error dispatching message")
+		return "", fmt.Errorf("error dispatching message")
 	}
 
 	g.msg = msg
-	return nil
+	return "", nil
 }
 
 func TestClientGroupSuccess(t *testing.T) {
@@ -51,10 +51,6 @@ func TestClientGroupSuccess(t *testing.T) {
 	}
 
 	if ok := assert.NotNil(t, g); !ok {
-		t.Fatal()
-	}
-
-	if ok := assert.Equal(t, dispatcher.msg.ID, g.ID()); !ok {
 		t.Fatal()
 	}
 
@@ -122,11 +118,10 @@ func TestGroupTask(t *testing.T) {
 	r2 := MustCall(x, 3, 4)
 	r3 := MustCall(x, 5, 6)
 
-	for _, req := range []Request{r1, r2, r3} {
+	for i, req := range []Request{r1, r2, r3} {
 		dispatcher.On("Dispatch", &Message{
-			ID:      req.ID(),
 			Content: req,
-		}).Return(nil)
+		}).Return(fmt.Sprintf("id-%d", i), nil)
 	}
 
 	ctx := Context{
@@ -139,13 +134,12 @@ func TestGroupTask(t *testing.T) {
 		t.Fatal()
 	}
 
-	if ok := assert.Equal(t, []string{r1.ID(), r2.ID(), r3.ID()}, ids); !ok {
+	if ok := assert.Equal(t, []string{"id-0", "id-1", "id-2"}, ids); !ok {
 		t.Fatal()
 	}
 
 	for _, req := range []Request{r1, r2, r3} {
 		if ok := dispatcher.AssertCalled(t, "Dispatch", &Message{
-			ID:      req.ID(),
 			Content: req,
 		}); !ok {
 			t.Fatal()
@@ -175,7 +169,6 @@ func TestGroupTaskPanic(t *testing.T) {
 
 	for _, req := range []Request{r1, r2, r3} {
 		dispatcher.On("Dispatch", &Message{
-			ID:      req.ID(),
 			Content: req,
 		}).Return(fmt.Errorf("panic for me"))
 	}

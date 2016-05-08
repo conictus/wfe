@@ -35,7 +35,7 @@ func TestHandleRequestUnknownFn(t *testing.T) {
 	eng := &Engine{}
 
 	req := MustCall(wfeAddTest, 1, 2)
-	_, err := eng.handle(req)
+	_, err := eng.handle("", req)
 
 	if ok := assert.Equal(t, err, ErrUnknownFunction); !ok {
 		t.Fatal()
@@ -47,7 +47,7 @@ func TestHandleRequestOk(t *testing.T) {
 	eng := &Engine{}
 
 	req := MustCall(wfeAddTest, 1, 2)
-	v, err := eng.handle(req)
+	v, err := eng.handle("", req)
 
 	if ok := assert.Nil(t, err); !ok {
 		t.Fatal()
@@ -68,7 +68,7 @@ func TestHandleRequestPtrOk(t *testing.T) {
 		Function:  "github.com/conictus/wfe.wfeTestPtr",
 		Arguments: []interface{}{x},
 	}
-	v, err := eng.handle(&req)
+	v, err := eng.handle("", &req)
 
 	if ok := assert.Nil(t, err); !ok {
 		t.Fatal()
@@ -88,7 +88,7 @@ func TestHandleRequestInterOk(t *testing.T) {
 		Function:  "github.com/conictus/wfe.wfeTestInter",
 		Arguments: []interface{}{x},
 	}
-	v, err := eng.handle(&req)
+	v, err := eng.handle("", &req)
 
 	if ok := assert.Nil(t, err); !ok {
 		t.Fatal()

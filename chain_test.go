@@ -6,24 +6,21 @@ import (
 	"testing"
 )
 
-type chainDispatcher struct {
-	testDispatcher
-}
-
-func (g *chainDispatcher) Dispatch(msg *Message) error {
-	msg.ID = ""
-	req := msg.Content.(*requestImpl)
-	req.UUID = ""
-
-	args := g.Called(msg)
-	return args.Error(0)
-}
+//
+//type chainDispatcher struct {
+//	testDispatcher
+//}
+//
+//func (g *chainDispatcher) Dispatch(msg *Message) (error) {
+//	args := g.Called(msg)
+//	return args.Error(0)
+//}
 
 func TestClientChainSuccess(t *testing.T) {
 	broker := &testBroker{}
 	store := &testStore{}
 
-	dispatcher := &chainDispatcher{}
+	dispatcher := &testDispatcher{}
 	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
@@ -45,7 +42,7 @@ func TestClientChainSuccess(t *testing.T) {
 			Function:  "github.com/conictus/wfe.chain",
 			Arguments: []interface{}{r1, r2, r3},
 		},
-	}).Return(nil)
+	}).Return("", nil)
 
 	g, err := client.Chain(
 		r1, r2, r3,
@@ -68,7 +65,7 @@ func TestClientChainError(t *testing.T) {
 	broker := &testBroker{}
 	store := &testStore{}
 
-	dispatcher := &chainDispatcher{}
+	dispatcher := &testDispatcher{}
 	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
@@ -90,7 +87,7 @@ func TestClientChainError(t *testing.T) {
 			Function:  "github.com/conictus/wfe.chain",
 			Arguments: []interface{}{r1, r2, r3},
 		},
-	}).Return(errors.New("die for me"))
+	}).Return("", errors.New("die for me"))
 
 	g, err := client.Chain(
 		r1, r2, r3,

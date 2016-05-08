@@ -6,24 +6,11 @@ import (
 	"testing"
 )
 
-type chordDispatcher struct {
-	testDispatcher
-}
-
-func (g *chordDispatcher) Dispatch(msg *Message) error {
-	msg.ID = ""
-	req := msg.Content.(*requestImpl)
-	req.UUID = ""
-
-	args := g.Called(msg)
-	return args.Error(0)
-}
-
 func TestClientChordSuccess(t *testing.T) {
 	broker := &testBroker{}
 	store := &testStore{}
 
-	dispatcher := &chordDispatcher{}
+	dispatcher := &testDispatcher{}
 	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
@@ -50,7 +37,7 @@ func TestClientChordSuccess(t *testing.T) {
 			Function:  "github.com/conictus/wfe.chord",
 			Arguments: []interface{}{cb, r1, r2, r3},
 		},
-	}).Return(nil)
+	}).Return("", nil)
 
 	g, err := client.Chord(
 		cb,
@@ -74,7 +61,7 @@ func TestClientChordError(t *testing.T) {
 	broker := &testBroker{}
 	store := &testStore{}
 
-	dispatcher := &chordDispatcher{}
+	dispatcher := &testDispatcher{}
 	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
@@ -101,7 +88,7 @@ func TestClientChordError(t *testing.T) {
 			Function:  "github.com/conictus/wfe.chord",
 			Arguments: []interface{}{cb, r1, r2, r3},
 		},
-	}).Return(errors.New("die hard"))
+	}).Return("", errors.New("die hard"))
 
 	g, err := client.Chord(
 		cb,

@@ -46,11 +46,10 @@ func TestClientApplySuccess(t *testing.T) {
 
 	req := MustCall(x, 1, 2)
 	msg := Message{
-		ID:      req.ID(),
 		Content: req,
 	}
-
-	dispatcher.On("Dispatch", &msg).Return(nil)
+	id := "1234"
+	dispatcher.On("Dispatch", &msg).Return(id, nil)
 	result, err := client.Apply(req)
 	if ok := assert.Nil(t, err); !ok {
 		t.Fatal()
@@ -60,7 +59,7 @@ func TestClientApplySuccess(t *testing.T) {
 		t.Fatal()
 	}
 
-	if ok := assert.Equal(t, req.ID(), result.ID()); !ok {
+	if ok := assert.Equal(t, id, result.ID()); !ok {
 		t.Fatal()
 	}
 }
@@ -84,11 +83,10 @@ func TestClientApplyError(t *testing.T) {
 
 	req := MustCall(x, 1, 2)
 	msg := Message{
-		ID:      req.ID(),
 		Content: req,
 	}
 
-	dispatcher.On("Dispatch", &msg).Return(errors.New("stupid error"))
+	dispatcher.On("Dispatch", &msg).Return("", errors.New("stupid error"))
 	_, err = client.Apply(req)
 	if ok := assert.Error(t, err); !ok {
 		t.Fatal()
@@ -114,11 +112,10 @@ func TestClientApplyParentIDInjection(t *testing.T) {
 
 	req := MustCall(x, 1, 2)
 	msg := Message{
-		ID:      req.ID(),
 		Content: req,
 	}
 
-	dispatcher.On("Dispatch", &msg).Return(nil)
+	dispatcher.On("Dispatch", &msg).Return("", nil)
 	_, err = client.Apply(req)
 	if ok := assert.Nil(t, err); !ok {
 		t.Fatal()

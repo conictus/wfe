@@ -32,9 +32,9 @@ func (d *testDispatcher) Close() error {
 	return args.Error(0)
 }
 
-func (d *testDispatcher) Dispatch(m *Message) error {
+func (d *testDispatcher) Dispatch(m *Message) (string, error) {
 	args := d.Called(m)
-	return args.Error(0)
+	return args.String(0), args.Error(1)
 }
 
 type testConsumer struct {
