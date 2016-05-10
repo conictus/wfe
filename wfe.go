@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/op/go-logging"
 	"reflect"
+	"runtime/debug"
 	"time"
 )
 
@@ -117,6 +118,8 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 
 	defer func() {
 		if err := recover(); err != nil {
+			debug.PrintStack()
+
 			log.Errorf("Message '%s' paniced: %s", delivery.ID(), err)
 			response.State = StateError
 			response.Error = fmt.Sprintf("%v", err)

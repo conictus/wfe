@@ -55,7 +55,12 @@ func init() {
 		store := newRedisStore(u.Host, pass, timeout, keep)
 		return store, nil
 	})
+
+	RegisterResultStore("discard", func(u *url.URL) (ResultStore, error) {
+		return (*discardStore)(nil), nil
+	})
 }
+
 func newRedisStore(server string, password string, timeout int, keep int) ResultStore {
 	return &redisStore{
 		timeout: timeout,
@@ -126,4 +131,14 @@ func (s *redisStore) Get(uuid string, timeout int) (*Response, error) {
 	}
 
 	return &response, err
+}
+
+type discardStore struct{}
+
+func (s *discardStore) Set(response *Response) error {
+	return nil
+}
+
+func (s *discardStore) Get(id string, timeout int) (*Response, error) {
+	return nil, fmt.Errorf("Result has been discarded")
 }

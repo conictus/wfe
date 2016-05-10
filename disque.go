@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/goware/disque"
 	"net/url"
+	"time"
 )
 
 func init() {
@@ -19,7 +20,12 @@ func init() {
 			return nil, err
 		}
 
-		return &disqueBroker{pool: pool}, nil
+		retry, err := parseInt(u.Query().Get("retry"), 0)
+		if err != nil {
+			return nil, err
+		}
+
+		return &disqueBroker{pool: pool.RetryAfter(time.Duration(retry) * time.Second)}, nil
 	})
 }
 
