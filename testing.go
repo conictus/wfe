@@ -70,3 +70,86 @@ func (t *testStore) Get(id string, timeout int) (*Response, error) {
 
 	return r, args.Error(1)
 }
+
+func NewTestContext(id string, client Client) *Context {
+	return &Context{
+		id:     id,
+		client: client,
+		values: make(map[string]interface{}),
+	}
+}
+
+type TestClient struct {
+	mock.Mock
+}
+
+func (tc *TestClient) Apply(req Request) (Result, error) {
+	args := tc.Called(req)
+	r := args.Get(0)
+	if r == nil {
+		return nil, args.Error(1)
+	}
+
+	return r.(Result), args.Error(1)
+}
+
+func (tc *TestClient) Group(requests ...Request) (GroupResult, error) {
+	var in []interface{}
+	for _, r := range requests {
+		in = append(in, r)
+	}
+
+	args := tc.Called(in...)
+
+	r := args.Get(0)
+	if r == nil {
+		return nil, args.Error(1)
+	}
+
+	return r.(GroupResult), args.Error(1)
+}
+
+func (tc *TestClient) Chain(request Request, chain ...PartialRequest) (Result, error) {
+	in := []interface{}{request}
+	for _, r := range chain {
+		in = append(in, r)
+	}
+
+	args := tc.Called(in...)
+	r := args.Get(0)
+	if r == nil {
+		return nil, args.Error(1)
+	}
+
+	return r.(Result), args.Error(1)
+}
+
+func (tc *TestClient) Chord(callback PartialRequest, requests ...Request) (Result, error) {
+	in := []interface{}{callback}
+	for _, r := range requests {
+		in = append(in, r)
+	}
+
+	args := tc.Called(in...)
+	r := args.Get(0)
+	if r == nil {
+		return nil, args.Error(1)
+	}
+
+	return r.(Result), args.Error(1)
+}
+
+func (tc *TestClient) ResultFor(id string) Result {
+	args := tc.Called(id)
+	r := args.Get(0)
+	if r == nil {
+		return nil
+	}
+
+	return r.(Result)
+}
+
+func (tc *TestClient) Close() error {
+	args := tc.Called()
+	return args.Error(0)
+}
