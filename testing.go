@@ -153,3 +153,30 @@ func (tc *TestClient) Close() error {
 	args := tc.Called()
 	return args.Error(0)
 }
+
+type DummyClient struct {
+}
+
+func (dc *DummyClient) Apply(req Request) (Result, error) {
+	return nil, nil
+}
+
+func (dc *DummyClient) Group(requests ...Request) (GroupResult, error) {
+	return nil, nil
+}
+
+func (dc *DummyClient) Chain(request Request, chain ...PartialRequest) (Result, error) {
+	return nil, nil
+}
+
+func (dc *DummyClient) Chord(callback PartialRequest, requests ...Request) (Result, error) {
+	return nil, nil
+}
+
+func (dc *DummyClient) ResultFor(id string) Result {
+	return nil
+}
+
+func (dc *DummyClient) Close() error {
+	return nil
+}
