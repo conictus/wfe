@@ -1,6 +1,7 @@
 package wfe
 
 import (
+	"fmt"
 	"net/url"
 	"sync"
 )
@@ -27,6 +28,9 @@ type Options struct {
 
 	//Store URL `redis://localhost:6379?keep=30`
 	Store string
+
+	//Graph backend URL
+	Graph string
 }
 
 /*
@@ -76,6 +80,10 @@ func (o *Options) GetBroker() (Broker, error) {
 
 //GetStore gets a new instance of the result store according to the store url
 func (o *Options) GetStore() (ResultStore, error) {
+	if o.Store == "" {
+		return (*discardStore)(nil), nil
+	}
+
 	u, err := url.Parse(o.Store)
 	if err != nil {
 		log.Fatalf("failed to parse broker url: %s", o.Broker)
@@ -91,4 +99,12 @@ func (o *Options) GetStore() (ResultStore, error) {
 	}
 
 	return factory(u)
+}
+
+func (o *Options) GetGraphBackend() (GraphBackend, error) {
+	if o.Graph == "" {
+		return (*noopGrapher)(nil), nil
+	}
+
+	return nil, fmt.Errorf("Unknown graph backend")
 }
