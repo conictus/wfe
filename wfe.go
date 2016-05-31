@@ -148,7 +148,9 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		return err
 	}
 
-	graph, _ = e.graph.Graph(delivery.ID(), &req)
+	if e.graph != nil {
+		graph, _ = e.graph.Graph(delivery.ID(), &req)
+	}
 
 	result, err := e.handle(delivery.ID(), &req)
 	if err != nil {

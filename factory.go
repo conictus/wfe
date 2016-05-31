@@ -7,11 +7,13 @@ import (
 )
 
 var (
-	brokers = make(map[string]BrokerFactory)
-	stores  = make(map[string]ResultStoreFactory)
+	brokers  = make(map[string]BrokerFactory)
+	stores   = make(map[string]ResultStoreFactory)
+	graphers = make(map[string]GraphBackendFactory)
 
 	bm sync.Mutex
 	sm sync.Mutex
+	gm sync.Mutex
 )
 
 //BrokerFactory function type
@@ -19,6 +21,9 @@ type BrokerFactory func(u *url.URL) (Broker, error)
 
 //ResultStoreFactory function type
 type ResultStoreFactory func(u *url.URL) (ResultStore, error)
+
+//GraphBackend factory function type
+type GraphBackendFactory func(u *url.URL) (GraphBackend, error)
 
 //Options is used to configure both the Engine and the Client instances. It specifies the broker and the result store
 //to use
@@ -59,11 +64,18 @@ func RegisterResultStore(scheme string, factory ResultStoreFactory) {
 	stores[scheme] = factory
 }
 
+func RegisterGraphBackend(scheme string, factory GraphBackendFactory) {
+	gm.Lock()
+	defer gm.Unlock()
+
+	graphers[scheme] = factory
+}
+
 //GetBroker gets a new instance of the broker according to the broker url
 func (o *Options) GetBroker() (Broker, error) {
 	u, err := url.Parse(o.Broker)
 	if err != nil {
-		log.Fatalf("failed to parse broker url: %s", o.Broker)
+		log.Errorf("failed to parse broker url: %s", o.Broker)
 		return nil, err
 	}
 
@@ -72,7 +84,7 @@ func (o *Options) GetBroker() (Broker, error) {
 
 	factory, ok := brokers[u.Scheme]
 	if !ok {
-		log.Fatalf("unknown broker %s", u.Scheme)
+		return nil, fmt.Errorf("unknown broker %s", u.Scheme)
 	}
 
 	return factory(u)
@@ -86,7 +98,7 @@ func (o *Options) GetStore() (ResultStore, error) {
 
 	u, err := url.Parse(o.Store)
 	if err != nil {
-		log.Fatalf("failed to parse broker url: %s", o.Broker)
+		log.Errorf("failed to parse broker url: %s", o.Broker)
 		return nil, err
 	}
 
@@ -95,7 +107,7 @@ func (o *Options) GetStore() (ResultStore, error) {
 
 	factory, ok := stores[u.Scheme]
 	if !ok {
-		log.Fatalf("unknown store %s", u.Scheme)
+		return nil, fmt.Errorf("unknown store %s", u.Scheme)
 	}
 
 	return factory(u)
@@ -106,5 +118,19 @@ func (o *Options) GetGraphBackend() (GraphBackend, error) {
 		return (*noopGrapher)(nil), nil
 	}
 
-	return nil, fmt.Errorf("Unknown graph backend")
+	u, err := url.Parse(o.Graph)
+	if err != nil {
+		log.Errorf("failed to parse graph backend url: %s", o.Broker)
+		return nil, err
+	}
+
+	gm.Lock()
+	defer gm.Unlock()
+
+	factory, ok := graphers[u.Scheme]
+	if !ok {
+		return nil, fmt.Errorf("unknown graph backend %s", u.Scheme)
+	}
+
+	return factory(u)
 }
