@@ -25,6 +25,7 @@ var (
 type Engine struct {
 	opt     *Options
 	store   ResultStore
+	graph   GraphBackend
 	workers int
 
 	mw         middlewareStack
@@ -38,12 +39,18 @@ controllers how many parallel tasks can be run concurrently on this engine insta
 func New(o *Options, workers int) (*Engine, error) {
 	store, err := o.GetStore()
 	if err != nil {
-		log.Warningf("Failed to create a result store: %s", err)
+		return nil, err
+	}
+
+	graph, err := o.GetGraphBackend()
+	if err != nil {
+		return nil, err
 	}
 
 	return &Engine{
 		opt:     o,
 		store:   store,
+		graph:   graph,
 		workers: workers,
 	}, nil
 }
@@ -62,7 +69,7 @@ func (e *Engine) newContext(id string, req Request) *Context {
 
 func (e *Engine) handle(id string, req Request) (interface{}, error) {
 	log.Debugf("Calling %s", req)
-	fn, ok := fns[req.Fn()]
+	fn, ok := Registered(req.Fn())
 	if !ok {
 		return nil, ErrUnknownFunction
 	}
@@ -111,11 +118,12 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 		}
 	}()
 
-	response := Response{
+	response := &Response{
 		UUID:  delivery.ID(),
 		State: StateError,
 	}
 
+	var graph Graph
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
@@ -125,8 +133,12 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 			response.Error = fmt.Sprintf("%v", err)
 		}
 
-		if err := e.store.Set(&response); err != nil {
+		if err := e.store.Set(response); err != nil {
 			log.Errorf("Failed to send response for id (%s): %s", response.UUID, err)
+		}
+
+		if graph != nil {
+			graph.Commit(response)
 		}
 	}()
 
@@ -134,6 +146,10 @@ func (e *Engine) handleDelivery(delivery Delivery) error {
 	if err := delivery.Content(&req); err != nil {
 		response.Error = err.Error()
 		return err
+	}
+
+	if e.graph != nil {
+		graph, _ = e.graph.Graph(delivery.ID(), &req)
 	}
 
 	result, err := e.handle(delivery.ID(), &req)

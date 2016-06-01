@@ -40,6 +40,10 @@ type Response struct {
 	Result interface{}
 }
 
+type ParentIDSetter interface {
+	SetParentID(id string)
+}
+
 //Request interface
 type Request interface {
 	ParentID() string
@@ -65,6 +69,10 @@ func (r *requestImpl) ParentID() string {
 	return r.ParentUUID
 }
 
+func (r *requestImpl) SetParentID(id string) {
+	r.ParentUUID = id
+}
+
 func (r *requestImpl) Fn() string {
 	return r.Function
 }
@@ -82,12 +90,23 @@ func (r *requestImpl) Append(arg interface{}) {
 }
 
 func (r *requestImpl) Request() (Request, error) {
-	fn, ok := fns[r.Function]
+	fn, ok := Registered(r.Function)
 	if !ok {
 		return nil, fmt.Errorf("unknown function '%s'", r.Function)
 	}
 
-	return Call(fn, r.Arguments...)
+	req, err := Call(fn, r.Arguments...)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.ParentID() != "" {
+		if req, ok := req.(ParentIDSetter); ok {
+			req.SetParentID(r.ParentUUID)
+		}
+	}
+
+	return req, nil
 }
 
 func expectedAt(fn reflect.Type, i int) reflect.Type {
