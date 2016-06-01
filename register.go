@@ -64,3 +64,8 @@ func Register(fn interface{}) {
 	defer m.Unlock()
 	fns[n] = fn
 }
+
+func Registered(fn string) (interface{}, bool) {
+	f, ok := fns[fn]
+	return f, ok
+}

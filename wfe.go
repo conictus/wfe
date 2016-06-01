@@ -69,7 +69,7 @@ func (e *Engine) newContext(id string, req Request) *Context {
 
 func (e *Engine) handle(id string, req Request) (interface{}, error) {
 	log.Debugf("Calling %s", req)
-	fn, ok := fns[req.Fn()]
+	fn, ok := Registered(req.Fn())
 	if !ok {
 		return nil, ErrUnknownFunction
 	}

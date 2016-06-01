@@ -76,9 +76,9 @@ func (c *clientImpl) ResultFor(id string) Result {
 }
 
 func (c *clientImpl) Apply(req Request) (Result, error) {
-	if c.parentID != "" {
-		if req, ok := req.(*requestImpl); ok {
-			req.ParentUUID = c.parentID
+	if c.parentID != "" && req.ParentID() == "" {
+		if req, ok := req.(ParentIDSetter); ok {
+			req.SetParentID(c.parentID)
 		}
 	}
 
