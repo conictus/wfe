@@ -76,3 +76,8 @@ ResultFor Gets a result instance for a running task knowing the task id
 func (c *Context) ResultFor(id string) Result {
 	return c.client.ResultFor(id)
 }
+
+func (c *Context) Close() error {
+	//do nothing
+	return nil
+}
