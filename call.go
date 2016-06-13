@@ -57,6 +57,7 @@ type PartialRequest interface {
 	Request
 	Append(arg interface{})
 	Request() (Request, error)
+	MustRequest() Request
 }
 
 type requestImpl struct {
@@ -107,6 +108,15 @@ func (r *requestImpl) Request() (Request, error) {
 	}
 
 	return req, nil
+}
+
+func (r *requestImpl) MustRequest() Request {
+	req, err := r.Request()
+	if err != nil {
+		panic(err)
+	}
+
+	return req
 }
 
 func expectedAt(fn reflect.Type, i int) reflect.Type {
