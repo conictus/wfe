@@ -147,7 +147,7 @@ func validateArgs(fn reflect.Type, partial bool, args ...interface{}) error {
 		expected := expectedAt(fn, i+1)
 
 		if !actual.AssignableTo(expected) {
-			return fmt.Errorf("argument type mismatch at position %d expected %s", i+1, expected)
+			return fmt.Errorf("argument type mismatch at position %d expected %s got '%s' instead", i+1, expected, actual)
 		}
 	}
 
