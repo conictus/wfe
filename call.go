@@ -57,6 +57,7 @@ type PartialRequest interface {
 	Request
 	Append(arg interface{})
 	Request() (Request, error)
+	MustRequest() Request
 }
 
 type requestImpl struct {
@@ -109,6 +110,15 @@ func (r *requestImpl) Request() (Request, error) {
 	return req, nil
 }
 
+func (r *requestImpl) MustRequest() Request {
+	req, err := r.Request()
+	if err != nil {
+		panic(err)
+	}
+
+	return req
+}
+
 func expectedAt(fn reflect.Type, i int) reflect.Type {
 	if fn.IsVariadic() && i >= fn.NumIn()-1 {
 		argvType := fn.In(fn.NumIn() - 1)
@@ -137,7 +147,7 @@ func validateArgs(fn reflect.Type, partial bool, args ...interface{}) error {
 		expected := expectedAt(fn, i+1)
 
 		if !actual.AssignableTo(expected) {
-			return fmt.Errorf("argument type mismatch at position %d expected %s", i+1, expected)
+			return fmt.Errorf("argument type mismatch at position %d expected %s got '%s' instead", i+1, expected, actual)
 		}
 	}
 
