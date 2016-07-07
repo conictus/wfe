@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/pborman/uuid"
 	"github.com/streadway/amqp"
+	"net"
 	"net/url"
+	"time"
 )
 
 const (
@@ -54,20 +56,24 @@ type amqpConsumer struct {
 
 func init() {
 	RegisterBroker("amqp", func(u *url.URL) (Broker, error) {
-		return newAMQPBroker(u.String())
+		return NewAMQPBroker(u.String(), nil)
 	})
 }
 
-func newAMQPBroker(url string) (Broker, error) {
+func NewAMQPBroker(url string, Dial func(network, addr string) (net.Conn, error)) (Broker, error) {
 	var broker amqpBroker
-	if err := broker.init(url); err != nil {
+	if err := broker.init(url, Dial); err != nil {
 		return nil, err
 	}
 	return &broker, nil
 }
 
-func (b *amqpBroker) init(url string) error {
-	c, err := amqp.Dial(url)
+func (b *amqpBroker) init(url string, Dial func(network, addr string) (net.Conn, error)) error {
+	c, err := amqp.DialConfig(url, amqp.Config{
+		Heartbeat: 10 * time.Second,
+		Dial:      Dial,
+	})
+
 	if err != nil {
 		return err
 	}

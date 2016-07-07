@@ -52,7 +52,7 @@ func init() {
 		if u.User != nil {
 			pass = u.User.Username()
 		}
-		store := newRedisStore(u.Host, pass, timeout, keep)
+		store := NewRedisStore(u.Host, pass, timeout, keep)
 		return store, nil
 	})
 
@@ -61,7 +61,7 @@ func init() {
 	})
 }
 
-func newRedisStore(server string, password string, timeout int, keep int) ResultStore {
+func NewRedisStore(server string, password string, timeout int, keep int, options ...redis.DialOption) ResultStore {
 	return &redisStore{
 		timeout: timeout,
 		keep:    keep,
@@ -69,7 +69,7 @@ func newRedisStore(server string, password string, timeout int, keep int) Result
 			MaxIdle:     3,
 			IdleTimeout: 240 * time.Second,
 			Dial: func() (redis.Conn, error) {
-				c, err := redis.Dial("tcp", server)
+				c, err := redis.Dial("tcp", server, options...)
 				if err != nil {
 					return nil, err
 				}
