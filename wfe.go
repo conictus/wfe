@@ -71,6 +71,7 @@ func (e *Engine) handle(id string, req Request) (interface{}, error) {
 	log.Debugf("Calling %s", req)
 	fn, ok := Registered(req.Fn())
 	if !ok {
+		log.Errorf("Unknow function: %s", req.Fn())
 		return nil, ErrUnknownFunction
 	}
 
