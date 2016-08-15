@@ -5,7 +5,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"net/url"
-	"strings"
 )
 
 var (
@@ -24,13 +23,11 @@ type mgoGraphModel struct {
 
 type mgoGrapher struct {
 	session *mgo.Session
-	db      string
 }
 
 type mgoGraph struct {
 	id      string
 	session *mgo.Session
-	db      string
 }
 
 func init() {
@@ -49,9 +46,8 @@ func init() {
 			return nil, err
 		}
 
-		db := strings.Trim(u.Path, "/")
 		//ensure index.
-		c := session.DB(db).C(MgoGraphCollection)
+		c := session.DB("").C(MgoGraphCollection)
 		for _, index := range indexies {
 			if err := c.EnsureIndex(index); err != nil {
 				return nil, err
@@ -60,7 +56,6 @@ func init() {
 
 		return &mgoGrapher{
 			session: session,
-			db:      db,
 		}, nil
 	})
 }
@@ -78,7 +73,7 @@ func (g *mgoGrapher) Graph(id string, request Request) (Graph, error) {
 	s := g.session.Copy()
 	defer s.Close()
 
-	_, err := s.DB(g.db).C(MgoGraphCollection).UpsertId(id, &mgoGraphModel{
+	_, err := s.DB("").C(MgoGraphCollection).UpsertId(id, &mgoGraphModel{
 		ID:       id,
 		ParentID: request.ParentID(),
 		Function: request.Fn(),
@@ -93,7 +88,6 @@ func (g *mgoGrapher) Graph(id string, request Request) (Graph, error) {
 	return &mgoGraph{
 		id:      id,
 		session: g.session,
-		db:      g.db,
 	}, nil
 }
 
@@ -101,7 +95,7 @@ func (g *mgoGraph) Commit(response *Response) error {
 	s := g.session.Copy()
 	defer s.Close()
 
-	return s.DB(g.db).C(MgoGraphCollection).UpdateId(
+	return s.DB("").C(MgoGraphCollection).UpdateId(
 		g.id,
 		bson.M{
 			"$set": bson.M{
