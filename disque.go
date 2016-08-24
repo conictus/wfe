@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/goware/disque"
+	"github.com/conictus/disque"
+	"github.com/garyburd/redigo/redis"
 	"net/url"
 	"time"
 )
@@ -27,6 +28,43 @@ func init() {
 
 		return &disqueBroker{pool: pool.RetryAfter(time.Duration(retry) * time.Second)}, nil
 	})
+}
+
+func NewDisqueBroker(server string, password string, options ...redis.DialOption) (Broker, error) {
+	pool := &redis.Pool{
+		MaxIdle:     3,
+		IdleTimeout: 240 * time.Second,
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", server, options...)
+			if err != nil {
+				return nil, err
+			}
+
+			if password != "" {
+				if _, err := c.Do("AUTH", password); err != nil {
+					c.Close()
+					return nil, err
+				}
+			}
+
+			return c, err
+		},
+		TestOnBorrow: func(c redis.Conn, t time.Time) error {
+			_, err := c.Do("PING")
+			return err
+		},
+	}
+
+	c := pool.Get()
+	defer c.Close()
+
+	if _, err := c.Do("PING"); err != nil {
+		return nil, err
+	}
+
+	return &disqueBroker{
+		pool: disque.NewWithPool(pool),
+	}, nil
 }
 
 type disqueBroker struct {
@@ -92,7 +130,11 @@ func (b *disqueBroker) Dispatch(msg *Message) (string, error) {
 	}
 
 	job, err := b.pool.Add(buffer.String(), queue)
-	return job.ID, err
+	if err != nil {
+		return "", err
+	}
+
+	return job.ID, nil
 }
 
 func (b *disqueBroker) Consume() (<-chan Delivery, error) {
