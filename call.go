@@ -49,6 +49,7 @@ type Request interface {
 	ParentID() string
 	Fn() string
 	Args() []interface{}
+	Invoke(ctx *Context) (interface{}, error)
 }
 
 //PartialRequest is a request with fewer arguments than the task expect.
@@ -117,6 +118,47 @@ func (r *requestImpl) MustRequest() Request {
 	}
 
 	return req
+}
+
+func (r *requestImpl) Invoke(ctx *Context) (interface{}, error) {
+	log.Debugf("Calling %s", r)
+	fn, ok := Registered(r.Fn())
+	if !ok {
+		log.Errorf("Unknow function: %s", r.Fn())
+		return nil, ErrUnknownFunction
+	}
+
+	callable := reflect.ValueOf(fn)
+	callableType := callable.Type()
+
+	var values []reflect.Value
+
+	values = append(values, reflect.ValueOf(ctx))
+
+	for i, arg := range r.Args() {
+		argType := expectedAt(callableType, i+1)
+		inValue := reflect.ValueOf(arg)
+
+		switch argType.Kind() {
+		case reflect.Ptr:
+			fallthrough
+		case reflect.Interface:
+			new := reflect.New(inValue.Type())
+			new.Elem().Set(inValue)
+			inValue = new
+		}
+
+		values = append(values, inValue)
+	}
+
+	returns := callable.Call(values)
+
+	var result interface{}
+	if len(returns) == 1 {
+		result = returns[0].Interface()
+	}
+
+	return result, nil
 }
 
 func expectedAt(fn reflect.Type, i int) reflect.Type {
