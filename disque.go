@@ -99,11 +99,8 @@ func (b *disqueBroker) Close() error {
 	return b.pool.Close()
 }
 
-func (b *disqueBroker) Dispatcher(o *RouteOptions) (Dispatcher, error) {
-	return &disqueBroker{
-		pool: b.pool,
-		opt:  o,
-	}, nil
+func (b *disqueBroker) Dispatcher() (Dispatcher, error) {
+	return b, nil
 }
 
 func (b *disqueBroker) Consumer(o *RouteOptions) (Consumer, error) {
@@ -113,17 +110,14 @@ func (b *disqueBroker) Consumer(o *RouteOptions) (Consumer, error) {
 	}, nil
 }
 
-func (b *disqueBroker) Dispatch(msg *Message) (string, error) {
+func (b *disqueBroker) Dispatch(o *RouteOptions, msg *Message) (string, error) {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
 	if err := encoder.Encode(msg.Content); err != nil {
 		return "", err
 	}
 
-	queue := msg.Queue
-	if b.opt != nil {
-		queue = b.opt.Queue
-	}
+	queue := o.Queue
 
 	if queue == "" {
 		return "", fmt.Errorf("queue is not set")

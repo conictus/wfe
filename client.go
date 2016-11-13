@@ -52,7 +52,7 @@ func NewClient(o *Options) (Client, error) {
 }
 
 func newClient(broker Broker, store ResultStore) (*clientImpl, error) {
-	dispatcher, err := broker.Dispatcher(WorkQueueRoute)
+	dispatcher, err := broker.Dispatcher()
 
 	if err != nil {
 		return nil, err
@@ -82,11 +82,24 @@ func (c *clientImpl) Apply(req Request) (Result, error) {
 		}
 	}
 
+	fn, ok := registered(req.Fn())
+	if !ok {
+		return nil, ErrUnknownFunction
+	}
+
 	msg := Message{
 		Content: req,
 	}
 
-	id, err := c.dispatcher.Dispatch(&msg)
+	o := WorkQueueRoute
+	if fn.queue != "" {
+		o = &RouteOptions{
+			Queue:   fn.queue,
+			Durable: true,
+		}
+	}
+
+	id, err := c.dispatcher.Dispatch(o, &msg)
 	if err != nil {
 		return nil, err
 	}

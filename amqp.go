@@ -118,13 +118,12 @@ func (b *amqpBroker) Consumer(o *RouteOptions) (Consumer, error) {
 	}, nil
 }
 
-func (b *amqpBroker) Dispatcher(o *RouteOptions) (Dispatcher, error) {
-	ch, err := b.makeRoute(o)
+func (b *amqpBroker) Dispatcher() (Dispatcher, error) {
+	ch, err := b.con.Channel()
 	if err != nil {
 		return nil, err
 	}
 	return &amqpDispatcher{
-		o:  o,
 		ch: ch,
 	}, nil
 }
@@ -133,17 +132,24 @@ func (b *amqpBroker) Close() error {
 	return b.con.Close()
 }
 
-func (b *amqpDispatcher) Dispatch(msg *Message) (string, error) {
+func (b *amqpDispatcher) makeRoute(o *RouteOptions) error {
+	if _, err := b.ch.QueueDeclare(o.Queue, o.Durable, o.AutoDelete, o.Exclusive, false, nil); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *amqpDispatcher) Dispatch(o *RouteOptions, msg *Message) (string, error) {
+	b.makeRoute(o)
+
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
 	if err := encoder.Encode(msg.Content); err != nil {
 		return "", err
 	}
 
-	queue := msg.Queue
-	if b.o != nil {
-		queue = b.o.Queue
-	}
+	queue := o.Queue
 
 	if queue == "" {
 		return "", fmt.Errorf("queue is not set")

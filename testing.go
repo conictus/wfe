@@ -13,8 +13,8 @@ func (b *testBroker) Close() error {
 	return args.Error(0)
 }
 
-func (b *testBroker) Dispatcher(o *RouteOptions) (Dispatcher, error) {
-	args := b.Called(o)
+func (b *testBroker) Dispatcher() (Dispatcher, error) {
+	args := b.Called()
 	return args.Get(0).(Dispatcher), args.Error(1)
 }
 
@@ -32,8 +32,8 @@ func (d *testDispatcher) Close() error {
 	return args.Error(0)
 }
 
-func (d *testDispatcher) Dispatch(m *Message) (string, error) {
-	args := d.Called(m)
+func (d *testDispatcher) Dispatch(o *RouteOptions, m *Message) (string, error) {
+	args := d.Called(o, m)
 	return args.String(0), args.Error(1)
 }
 

@@ -1,13 +1,13 @@
 package wfe
 
 const (
-	workQueue = "wfe.work"
+	defaultWorkQueue = "wfe.default.work"
 )
 
 var (
 	//WorkQueueRoute default route options for work queue. It declares the 'wfe.work' as durable queue
 	WorkQueueRoute = &RouteOptions{
-		Queue:   workQueue,
+		Queue:   defaultWorkQueue,
 		Durable: true,
 	}
 )
@@ -32,7 +32,7 @@ type Broker interface {
 	Close() error
 
 	//Dispatcher gets a dispatcher instance according to the RouterOptions specified.
-	Dispatcher(o *RouteOptions) (Dispatcher, error)
+	Dispatcher() (Dispatcher, error)
 
 	//Consumer gets a consumer instance according to the RouterOptions specified.
 	Consumer(o *RouteOptions) (Consumer, error)
@@ -40,7 +40,6 @@ type Broker interface {
 
 //Message content
 type Message struct {
-	Queue   string
 	Content interface{}
 }
 
@@ -50,7 +49,7 @@ type Dispatcher interface {
 	Close() error
 
 	//Dispatch msg
-	Dispatch(msg *Message) (string, error)
+	Dispatch(o *RouteOptions, msg *Message) (string, error)
 }
 
 //Consumer interfaec

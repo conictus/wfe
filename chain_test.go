@@ -21,7 +21,7 @@ func TestClientChainSuccess(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -37,7 +37,7 @@ func TestClientChainSuccess(t *testing.T) {
 	r2 := MustPartialCall(x, 3)
 	r3 := MustPartialCall(x, 5)
 
-	dispatcher.On("Dispatch", &Message{
+	dispatcher.On("Dispatch", WorkQueueRoute, &Message{
 		Content: &requestImpl{
 			Function:  "github.com/conictus/wfe.chain",
 			Arguments: []interface{}{r1, r2, r3},
@@ -66,7 +66,7 @@ func TestClientChainError(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -82,7 +82,7 @@ func TestClientChainError(t *testing.T) {
 	r2 := MustPartialCall(x, 3)
 	r3 := MustPartialCall(x, 5)
 
-	dispatcher.On("Dispatch", &Message{
+	dispatcher.On("Dispatch", WorkQueueRoute, &Message{
 		Content: &requestImpl{
 			Function:  "github.com/conictus/wfe.chain",
 			Arguments: []interface{}{r1, r2, r3},

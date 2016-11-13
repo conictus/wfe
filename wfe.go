@@ -6,10 +6,12 @@ Tasks can execute asynchronously (in the background) or synchronously (wait unti
 package wfe
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/op/go-logging"
 	"runtime/debug"
+	"sync"
 	"time"
 )
 
@@ -18,24 +20,31 @@ var (
 
 	//ErrUnknownFunction returned by the engine if a client is calling an unregistered function
 	ErrUnknownFunction = errors.New("unkonwn function")
+
+	DefaultQueue = Queue{defaultWorkQueue, 1000}
 )
 
 //Engine is responsible for running the tasks concurrently. It processes users messages and executes them
 type Engine struct {
-	opt     *Options
-	store   ResultStore
-	graph   GraphBackend
-	workers int
+	opt    *Options
+	store  ResultStore
+	graph  GraphBackend
+	queues []Queue
 
 	mw         middlewareStack
 	dispatcher Dispatcher
+}
+
+type Queue struct {
+	Name    string
+	Workers int
 }
 
 /*
 New creates a new engine with the given options and the number of workers routines. The number of workers routines
 controllers how many parallel tasks can be run concurrently on this engine instance.
 */
-func New(o *Options, workers int) (*Engine, error) {
+func New(o *Options, queues ...Queue) (*Engine, error) {
 	store, err := o.GetStore()
 	if err != nil {
 		return nil, err
@@ -47,10 +56,10 @@ func New(o *Options, workers int) (*Engine, error) {
 	}
 
 	return &Engine{
-		opt:     o,
-		store:   store,
-		graph:   graph,
-		workers: workers,
+		opt:    o,
+		store:  store,
+		graph:  graph,
+		queues: queues,
 	}, nil
 }
 
@@ -137,33 +146,32 @@ func (e *Engine) worker(queue <-chan Delivery) {
 	}
 }
 
-func (e *Engine) startWorkers() chan<- Delivery {
+func (e *Engine) startWorkers(number int) chan<- Delivery {
 	ch := make(chan Delivery)
-	for i := 0; i < e.workers; i++ {
+	for i := 0; i < number; i++ {
 		go e.worker(ch)
 	}
 
 	return ch
 }
 
-func (e *Engine) getRequestsQueue() (Broker, <-chan Delivery, error) {
-	broker, err := e.opt.GetBroker()
-	if err != nil {
-		return nil, nil, err
-	}
+func (e *Engine) getRequestsQueue(broker Broker, queue Queue) (<-chan Delivery, error) {
+	consumer, err := broker.Consumer(&RouteOptions{
+		Queue:   queue.Name,
+		Durable: true,
+	})
 
-	consumer, err := broker.Consumer(WorkQueueRoute)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	requests, err := consumer.Consume()
 	if err != nil {
 		broker.Close()
-		return nil, nil, err
+		return nil, err
 	}
 
-	return broker, requests, nil
+	return requests, nil
 }
 
 //Use a middleware
@@ -171,32 +179,55 @@ func (e *Engine) Use(m Middleware) {
 	e.mw = append(e.mw, m)
 }
 
+func (e *Engine) runQueue(ctx context.Context, wg *sync.WaitGroup, broker Broker, queue Queue) {
+	requests, err := e.getRequestsQueue(broker, queue)
+	if err != nil {
+		log.Errorf("Faile to get queue '%v' delivereis", queue)
+	}
+
+	feed := e.startWorkers(queue.Workers)
+	defer close(feed)
+	for request := range requests {
+		select {
+		case feed <- request:
+		case <-ctx.Done():
+			log.Infof("Queue %s canceled", queue)
+			return
+		}
+	}
+
+	wg.Done()
+}
+
 //Run start processing messages.
 func (e *Engine) Run() {
 	for {
-		broker, requests, err := e.getRequestsQueue()
+		broker, err := e.opt.GetBroker()
 		if err != nil {
 			log.Errorf("Failed to connect to broker '%s': %s", e.opt.Broker, err)
 			time.Sleep(3 * time.Second)
 			continue
 		}
 
-		dispatcher, err := broker.Dispatcher(WorkQueueRoute)
+		dispatcher, err := broker.Dispatcher()
+
 		if err != nil {
-			log.Errorf("Failed to intialize client: %s", err)
+			log.Errorf("Failed to get client dispatcher")
+			continue
 		}
 
 		e.dispatcher = dispatcher
 
-		feed := e.startWorkers()
-		for request := range requests {
-			feed <- request
+		ctx := context.Background()
+		ctx, cancel := context.WithCancel(ctx)
+		wg := sync.WaitGroup{}
+		wg.Add(1) //WE ALWAYS ADD ONLY ONE. SO IF ANY DIED, WE CANCEL ALL REMAINING WORKERS.
+
+		for _, queue := range e.queues {
+			go e.runQueue(ctx, &wg, broker, queue)
 		}
-		log.Warningf("Lost connection with broker")
 
-		broker.Close()
-		dispatcher.Close()
-
-		close(feed)
+		wg.Wait()
+		cancel()
 	}
 }

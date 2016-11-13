@@ -11,7 +11,7 @@ func TestClientChordSuccess(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -32,7 +32,7 @@ func TestClientChordSuccess(t *testing.T) {
 	r2 := MustCall(x, 3, 4)
 	r3 := MustCall(x, 5, 6)
 
-	dispatcher.On("Dispatch", &Message{
+	dispatcher.On("Dispatch", WorkQueueRoute, &Message{
 		Content: &requestImpl{
 			Function:  "github.com/conictus/wfe.chord",
 			Arguments: []interface{}{cb, r1, r2, r3},
@@ -62,7 +62,7 @@ func TestClientChordError(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -83,7 +83,7 @@ func TestClientChordError(t *testing.T) {
 	r2 := MustCall(x, 3, 4)
 	r3 := MustCall(x, 5, 6)
 
-	dispatcher.On("Dispatch", &Message{
+	dispatcher.On("Dispatch", WorkQueueRoute, &Message{
 		Content: &requestImpl{
 			Function:  "github.com/conictus/wfe.chord",
 			Arguments: []interface{}{cb, r1, r2, r3},

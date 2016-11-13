@@ -8,9 +8,14 @@ import (
 )
 
 var (
-	fns = make(map[string]interface{})
+	fns = make(map[string]function)
 	m   sync.Mutex
 )
+
+type function struct {
+	queue string
+	fn    interface{}
+}
 
 func validateWorkFunc(v reflect.Value) error {
 	if v.Kind() != reflect.Func {
@@ -52,8 +57,17 @@ Example:
 
 Note: A task can return an error by a panic
 */
-func Register(fn interface{}) {
+func Register(fn interface{}, queue ...string) {
 	v := reflect.ValueOf(fn)
+	if len(queue) > 1 {
+		panic("only one queue is allowed per function")
+	}
+
+	q := ""
+	if len(queue) == 1 {
+		q = queue[0]
+	}
+
 	if err := validateWorkFunc(v); err != nil {
 		panic(err)
 	}
@@ -62,10 +76,18 @@ func Register(fn interface{}) {
 	log.Debugf("Registering function '%s'", n)
 	m.Lock()
 	defer m.Unlock()
-	fns[n] = fn
+	fns[n] = function{
+		queue: q,
+		fn:    fn,
+	}
+}
+
+func registered(fn string) (function, bool) {
+	f, ok := fns[fn]
+	return f, ok
 }
 
 func Registered(fn string) (interface{}, bool) {
 	f, ok := fns[fn]
-	return f, ok
+	return f.fn, ok
 }

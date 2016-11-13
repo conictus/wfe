@@ -12,7 +12,7 @@ type groupDispatcher struct {
 	msg *Message
 }
 
-func (g *groupDispatcher) Dispatch(msg *Message) (string, error) {
+func (g *groupDispatcher) Dispatch(o *RouteOptions, msg *Message) (string, error) {
 	if g.err {
 		return "", fmt.Errorf("error dispatching message")
 	}
@@ -26,7 +26,7 @@ func TestClientGroupSuccess(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &groupDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -72,7 +72,7 @@ func TestClientGroupError(t *testing.T) {
 	dispatcher := &groupDispatcher{
 		err: true,
 	}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -103,7 +103,7 @@ func TestGroupTask(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 	if ok := assert.Nil(t, err); !ok {
@@ -114,12 +114,14 @@ func TestGroupTask(t *testing.T) {
 		return 0
 	}
 
+	Register(x)
+
 	r1 := MustCall(x, 1, 2)
 	r2 := MustCall(x, 3, 4)
 	r3 := MustCall(x, 5, 6)
 
 	for i, req := range []Request{r1, r2, r3} {
-		dispatcher.On("Dispatch", &Message{
+		dispatcher.On("Dispatch", WorkQueueRoute, &Message{
 			Content: req,
 		}).Return(fmt.Sprintf("id-%d", i), nil)
 	}
@@ -139,7 +141,7 @@ func TestGroupTask(t *testing.T) {
 	}
 
 	for _, req := range []Request{r1, r2, r3} {
-		if ok := dispatcher.AssertCalled(t, "Dispatch", &Message{
+		if ok := dispatcher.AssertCalled(t, "Dispatch", WorkQueueRoute, &Message{
 			Content: req,
 		}); !ok {
 			t.Fatal()
@@ -152,7 +154,7 @@ func TestGroupTaskPanic(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 	if ok := assert.Nil(t, err); !ok {
@@ -168,7 +170,7 @@ func TestGroupTaskPanic(t *testing.T) {
 	r3 := MustCall(x, 5, 6)
 
 	for _, req := range []Request{r1, r2, r3} {
-		dispatcher.On("Dispatch", &Message{
+		dispatcher.On("Dispatch", WorkQueueRoute, &Message{
 			Content: req,
 		}).Return(fmt.Errorf("panic for me"))
 	}

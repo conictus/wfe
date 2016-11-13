@@ -10,7 +10,7 @@ func TestNewClient(t *testing.T) {
 	broker := &testBroker{}
 	store := &testStore{}
 
-	broker.On("Dispatcher", WorkQueueRoute).Return(&testDispatcher{}, nil)
+	broker.On("Dispatcher").Return(&testDispatcher{}, nil)
 
 	client, err := newClient(broker, store)
 
@@ -18,7 +18,7 @@ func TestNewClient(t *testing.T) {
 		t.Fatal()
 	}
 
-	if ok := broker.AssertCalled(t, "Dispatcher", WorkQueueRoute); !ok {
+	if ok := broker.AssertCalled(t, "Dispatcher"); !ok {
 		t.Fatal()
 	}
 
@@ -32,7 +32,7 @@ func TestClientApplySuccess(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -44,12 +44,14 @@ func TestClientApplySuccess(t *testing.T) {
 		return 0
 	}
 
+	Register(x)
+
 	req := MustCall(x, 1, 2)
 	msg := Message{
 		Content: req,
 	}
 	id := "1234"
-	dispatcher.On("Dispatch", &msg).Return(id, nil)
+	dispatcher.On("Dispatch", WorkQueueRoute, &msg).Return(id, nil)
 	result, err := client.Apply(req)
 	if ok := assert.Nil(t, err); !ok {
 		t.Fatal()
@@ -69,7 +71,7 @@ func TestClientApplyError(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 
@@ -86,7 +88,7 @@ func TestClientApplyError(t *testing.T) {
 		Content: req,
 	}
 
-	dispatcher.On("Dispatch", &msg).Return("", errors.New("stupid error"))
+	dispatcher.On("Dispatch", WorkQueueRoute, &msg).Return("", errors.New("stupid error"))
 	_, err = client.Apply(req)
 	if ok := assert.Error(t, err); !ok {
 		t.Fatal()
@@ -98,7 +100,7 @@ func TestClientApplyParentIDInjection(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 	client.parentID = "i am your father"
@@ -110,12 +112,13 @@ func TestClientApplyParentIDInjection(t *testing.T) {
 		return 0
 	}
 
+	Register(x)
 	req := MustCall(x, 1, 2)
 	msg := Message{
 		Content: req,
 	}
 
-	dispatcher.On("Dispatch", &msg).Return("", nil)
+	dispatcher.On("Dispatch", WorkQueueRoute, &msg).Return("", nil)
 	_, err = client.Apply(req)
 	if ok := assert.Nil(t, err); !ok {
 		t.Fatal()
@@ -131,7 +134,7 @@ func TestClientResultOf(t *testing.T) {
 	store := &testStore{}
 
 	dispatcher := &testDispatcher{}
-	broker.On("Dispatcher", WorkQueueRoute).Return(dispatcher, nil)
+	broker.On("Dispatcher").Return(dispatcher, nil)
 
 	client, err := newClient(broker, store)
 	if ok := assert.Nil(t, err); !ok {
