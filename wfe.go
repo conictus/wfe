@@ -40,6 +40,10 @@ type Queue struct {
 	Workers int
 }
 
+func (q Queue) String() string {
+	return fmt.Sprintf("%s:%d", q.Name, q.Workers)
+}
+
 /*
 New creates a new engine with the given options and the number of workers routines. The number of workers routines
 controllers how many parallel tasks can be run concurrently on this engine instance.
