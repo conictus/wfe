@@ -1,13 +1,13 @@
 package wfe
 
 const (
-	defaultWorkQueue = "wfe.default.work"
+	DefaultQueueName = "wfe.default.work"
 )
 
 var (
 	//WorkQueueRoute default route options for work queue. It declares the 'wfe.work' as durable queue
 	WorkQueueRoute = &RouteOptions{
-		Queue:   defaultWorkQueue,
+		Queue:   DefaultQueueName,
 		Durable: true,
 	}
 )

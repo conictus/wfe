@@ -21,7 +21,7 @@ var (
 	//ErrUnknownFunction returned by the engine if a client is calling an unregistered function
 	ErrUnknownFunction = errors.New("unkonwn function")
 
-	DefaultQueue = Queue{defaultWorkQueue, 1000}
+	DefaultQueue = Queue{DefaultQueueName, 1000}
 )
 
 //Engine is responsible for running the tasks concurrently. It processes users messages and executes them
