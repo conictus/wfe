@@ -81,3 +81,7 @@ func (c *Context) Close() error {
 	//do nothing
 	return nil
 }
+
+func (c *Context) Abort(format string, a ...interface{}) {
+	panic(fmt.Errorf(format, a...))
+}
