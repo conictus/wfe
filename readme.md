@@ -17,10 +17,8 @@ that the project is still under development and still missing lots of features.
 * Tasks grouping (run multiple tasks in parallel and treat them as one)
 * Tasks chaining. A chain of tasks are executed in sequence where a task result is fed as an argument to the following tasks)
 * Tasks chord, which is similar to tasks group, but the results of the parallel tasks is collected and fed to a callback when all tasks are done
-
-## Missing features
-* Middleware support
-* Tasks logging, needed to generate tasks graph or trees for monitoring
+* Middlewares
+* Tasks logging, generate tasks graph or trees for monitoring
 * Tasks routing, to make a task run on a specific worker
 
 # How to use
